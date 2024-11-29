@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button, Tree, Layout, message } from 'antd';
 import { uid } from 'uid';
-
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 const { Content, Sider } = Layout;
 
 type FileNode = {
@@ -16,6 +17,8 @@ export const FileTreePage: React.FC = () => {
   const [treeData, setTreeData] = useState<FileNode[]>([]);
   const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFileContent, setSelectedFileContent] = useState<string>();
+
   const [isLoading, setIsLoading] = useState(false);
 
   // Обработка выбора папки
@@ -96,6 +99,7 @@ export const FileTreePage: React.FC = () => {
 
     try {
       setIsLoading(true);
+      setSelectedFileContent(selectedFile.content);
       const response = await fetch('http://localhost:3000/api/lint', {
         method: 'POST',
         body: formData,
@@ -145,6 +149,13 @@ export const FileTreePage: React.FC = () => {
           }}
         />
       </Sider>
+      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
+        {selectedFileContent && (
+          <SyntaxHighlighter language="javascript" style={darcula}>
+            {selectedFileContent}
+          </SyntaxHighlighter>
+        )}
+      </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {isLoading ? (
           <h3>Файл обрабатывается...</h3>

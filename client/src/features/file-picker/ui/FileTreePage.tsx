@@ -3,6 +3,7 @@ import { Button, Tree, Layout, message } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { FileDiff } from '../../file-diff/ui/FileDiff';
 const { Content, Sider } = Layout;
 
 type FileNode = {
@@ -150,13 +151,16 @@ export const FileTreePage: React.FC = () => {
         />
       </Sider>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
-        {selectedFileContent && (
+        {selectedFileContent && isLoading && (
           <SyntaxHighlighter language="javascript" style={darcula}>
             {selectedFileContent}
           </SyntaxHighlighter>
         )}
+    {selectedFileContent && !isLoading && (
+        <FileDiff oldValue={selectedFileContent} newValue={selectedFileErrors[0].replace(/^(.*\n){3}/, '')} language='javascript' />
+    )}
       </Content>
-      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
+      {!(selectedFileContent && !isLoading) && <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {isLoading ? (
           <h3>Файл обрабатывается...</h3>
         ) : (
@@ -179,7 +183,7 @@ export const FileTreePage: React.FC = () => {
             )}
           </div>
         )}
-      </Content>
+      </Content>}
       <Button
         type="primary"
         style={{

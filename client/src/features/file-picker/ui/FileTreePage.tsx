@@ -16,6 +16,7 @@ export const FileTreePage: React.FC = () => {
   const [treeData, setTreeData] = useState<FileNode[]>([]);
   const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Обработка выбора папки
   const handleSelectFolder = async () => {
@@ -94,6 +95,7 @@ export const FileTreePage: React.FC = () => {
     );
 
     try {
+      setIsLoading(true);
       const response = await fetch('http://localhost:3000/api/lint', {
         method: 'POST',
         body: formData,
@@ -110,6 +112,8 @@ export const FileTreePage: React.FC = () => {
     } catch (error) {
       console.error('Ошибка при отправке файла:', error);
       message.error('Не удалось проверить файл.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -129,7 +133,10 @@ export const FileTreePage: React.FC = () => {
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider width={300} style={{ background: '#fff', overflow: 'auto' }}>
+      <Sider
+        width={300}
+        style={{ background: '#fff', overflow: 'auto', marginBottom: 60 }}
+      >
         <Tree
           treeData={renderTreeNodes(treeData)}
           onSelect={(keys, event) => {
@@ -138,31 +145,39 @@ export const FileTreePage: React.FC = () => {
           }}
         />
       </Sider>
-      <Content style={{ padding: 16 }}>
-        <h3>
-          {selectedFileName
-            ? `Обзор файла: ${selectedFileName}`
-            : 'Выберите файл для проверки'}
-        </h3>
-        {selectedFileErrors.length > 0 ? (
-          <ul>
-            {selectedFileErrors.map((error, idx) => (
-              <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                {error}
-              </li>
-            ))}
-          </ul>
+      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
+        {isLoading ? (
+          <h3>Файл обрабатывается...</h3>
         ) : (
-          selectedFileName && <p>Ошибок не найдено</p>
+          <div>
+            <h3>
+              {selectedFileName
+                ? `Обзор файла: ${selectedFileName}`
+                : 'Выберите файл для проверки'}
+            </h3>
+            {selectedFileErrors.length > 0 ? (
+              <ul>
+                {selectedFileErrors.map((error, idx) => (
+                  <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              selectedFileName && <p>Ошибок не найдено</p>
+            )}
+          </div>
         )}
       </Content>
       <Button
         type="primary"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           bottom: 16,
-          left: 16,
-          right: 16,
+          left: 100,
+          padding: 10,
+          paddingLeft: 40,
+          paddingRight: 40,
         }}
         onClick={handleSelectFolder}
       >

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
+    "@react-pdf/renderer": "^4.1.5",
     "antd": "^5.22.2",
     "axios": "^1.7.8",
     "lodash": "^4.17.21",

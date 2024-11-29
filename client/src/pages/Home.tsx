@@ -1,3 +1,4 @@
+import Preview from '../features/converter/ui/Preview';
 import Link from '../shared/links/ui/Link';
 import { Title } from '../shared/text';
 
@@ -6,6 +7,7 @@ export default function Home() {
     <div>
       <Title>Welcome home</Title>
       <Link to="/user/test">User Test</Link>
+      <Preview />
     </div>
   );
 }

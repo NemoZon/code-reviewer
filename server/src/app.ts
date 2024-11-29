@@ -1,18 +1,20 @@
 import express, { Express } from 'express';
 import cors, { CorsOptions } from 'cors';
 import { HelloRouter } from '@routers/hello.router';
+import { LintRouter } from '@routers/lint.router'; // Новый роутер
 
 const app: Express = express();
 
 const corsOptions: CorsOptions = {
   origin: process.env.CLIENT_URL,
-  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
 };
 
 app.use(express.json());
-app.use(cors(corsOptions));
+app.use(cors());
 
-app.use('/api', HelloRouter)
-
+// Подключение роутеров
+app.use('/api', HelloRouter);
+app.use('/api', LintRouter); // Подключение роутера для ESLint
 
 export default app;

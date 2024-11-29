@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Button, Tree, Layout, Upload, message } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
+import {find} from 'lodash';
+import './proverka'
 
 const { Content, Sider } = Layout;
 
@@ -56,13 +58,33 @@ export const FileTreePage: React.FC = () => {
 
   // Отправка файла на сервер для проверки
   const lintFileOnServer = async (file: FileNode) => {
-    if (!file.isFile || !file.content) return;
-
+    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
+        for (const node of nodes) {
+          if (node.key === targetKey) {
+            return node;
+          }
+          if (node.children) {
+            const found = findFileInTree(node.children, targetKey);
+            if (found) {
+              return found;
+            }
+          }
+        }
+        return null;
+      };
+    
+      // Находим файл в `treeData`
+      const selectedFile = findFileInTree(treeData, file.key);
+    
+      if (!selectedFile || !selectedFile.content) {
+        message.error("Файл не найден или его содержимое отсутствует.");
+        return;
+      }
     const formData = new FormData();
-    formData.append("file", new Blob([file.content]), file.title);
+    formData.append("file", new Blob([selectedFile.content]), selectedFile.title);
 
     try {
-      const response = await fetch("http://localhost:3001/lint", {
+      const response = await fetch("http://localhost:3000/api/lint", {
         method: "POST",
         body: formData,
       });
@@ -72,8 +94,9 @@ export const FileTreePage: React.FC = () => {
       }
 
       const data = await response.json();
-      setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
-      setSelectedFileName(file.title);
+      setSelectedFileErrors([data.llmResponse.choices[0].message.content]);
+    //   setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
+      setSelectedFileName(selectedFile.title);
     } catch (error) {
       console.error("Ошибка при отправке файла:", error);
       message.error("Не удалось проверить файл.");
@@ -106,11 +129,11 @@ export const FileTreePage: React.FC = () => {
         />
       </Sider>
       <Content style={{ padding: 16 }}>
-        <h3>{selectedFileName ? `Ошибки файла: ${selectedFileName}` : "Выберите файл для проверки"}</h3>
+        <h3>{selectedFileName ? `Обзор файла: ${selectedFileName}` : "Выберите файл для проверки"}</h3>
         {selectedFileErrors.length > 0 ? (
           <ul>
             {selectedFileErrors.map((error, idx) => (
-              <li key={idx}>{error}</li>
+              <li key={idx} style={{whiteSpace: 'pre-wrap'}}>{error}</li>
             ))}
           </ul>
         ) : (

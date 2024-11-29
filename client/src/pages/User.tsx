@@ -5,8 +5,10 @@ import { FileTreePage } from '../features/file-picker/ui/FileTreePage';
 export default function User() {
   const { name } = useParams();
 
-  return <>
-    <Title>User {name || ''}</Title>
-    <FileTreePage />
-  </>
+  return (
+    <>
+      <Title>User {name || ''}</Title>
+      <FileTreePage />
+    </>
+  );
 }

@@ -1,8 +1,6 @@
-import React, { useState } from "react";
-import { Button, Tree, Layout, Upload, message } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
-import {find} from 'lodash';
-import './proverka'
+import React, { useState } from 'react';
+import { Button, Tree, Layout, message } from 'antd';
+import { uid } from 'uid';
 
 const { Content, Sider } = Layout;
 
@@ -26,28 +24,33 @@ export const FileTreePage: React.FC = () => {
       const files = await traverseDirectory(directoryHandle);
       setTreeData(files);
     } catch (error) {
-      console.error("Ошибка при выборе папки:", error);
+      console.error('Ошибка при выборе папки:', error);
     }
   };
 
   // Рекурсивное чтение директорий
-  const traverseDirectory = async (directoryHandle: FileSystemDirectoryHandle): Promise<FileNode[]> => {
+  const traverseDirectory = async (
+    directoryHandle: FileSystemDirectoryHandle,
+  ): Promise<FileNode[]> => {
     const children: FileNode[] = [];
     for await (const entry of directoryHandle.values()) {
-      if (entry.kind === "file") {
+      if (entry.kind === 'file') {
         const file = await entry.getFile();
         const content = await file.text();
+        const fileKey = uid();
         children.push({
           title: file.name,
-          key: file.name,
+          key: fileKey,
           isFile: true,
           content,
         });
-      } else if (entry.kind === "directory") {
+      } else if (entry.kind === 'directory') {
         const subChildren = await traverseDirectory(entry);
+        const dirKey = uid();
+
         children.push({
           title: entry.name,
-          key: entry.name,
+          key: dirKey,
           children: subChildren,
           isFile: false,
         });
@@ -58,48 +61,55 @@ export const FileTreePage: React.FC = () => {
 
   // Отправка файла на сервер для проверки
   const lintFileOnServer = async (file: FileNode) => {
-    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
-        for (const node of nodes) {
-          if (node.key === targetKey) {
-            return node;
-          }
-          if (node.children) {
-            const found = findFileInTree(node.children, targetKey);
-            if (found) {
-              return found;
-            }
+    const findFileInTree = (
+      nodes: FileNode[],
+      targetKey: string,
+    ): FileNode | null => {
+      for (const node of nodes) {
+        if (node.key === targetKey) {
+          return node;
+        }
+        if (node.children) {
+          const found = findFileInTree(node.children, targetKey);
+          if (found) {
+            return found;
           }
         }
-        return null;
-      };
-    
-      // Находим файл в `treeData`
-      const selectedFile = findFileInTree(treeData, file.key);
-    
-      if (!selectedFile || !selectedFile.content) {
-        message.error("Файл не найден или его содержимое отсутствует.");
-        return;
       }
+      return null;
+    };
+
+    // Находим файл в `treeData`
+    const selectedFile = findFileInTree(treeData, file.key);
+
+    if (!selectedFile || !selectedFile.content) {
+      message.error('Файл не найден или его содержимое отсутствует.');
+      return;
+    }
     const formData = new FormData();
-    formData.append("file", new Blob([selectedFile.content]), selectedFile.title);
+    formData.append(
+      'file',
+      new Blob([selectedFile.content]),
+      selectedFile.title,
+    );
 
     try {
-      const response = await fetch("http://localhost:3000/api/lint", {
-        method: "POST",
+      const response = await fetch('http://localhost:3000/api/lint', {
+        method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Ошибка на сервере");
+        throw new Error('Ошибка на сервере');
       }
 
       const data = await response.json();
       setSelectedFileErrors([data.llmResponse.choices[0].message.content]);
-    //   setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
+      //   setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
       setSelectedFileName(selectedFile.title);
     } catch (error) {
-      console.error("Ошибка при отправке файла:", error);
-      message.error("Не удалось проверить файл.");
+      console.error('Ошибка при отправке файла:', error);
+      message.error('Не удалось проверить файл.');
     }
   };
 
@@ -118,8 +128,8 @@ export const FileTreePage: React.FC = () => {
     }));
 
   return (
-    <Layout style={{ height: "100vh" }}>
-      <Sider width={300} style={{ background: "#fff", overflow: "auto" }}>
+    <Layout style={{ height: '100vh' }}>
+      <Sider width={300} style={{ background: '#fff', overflow: 'auto' }}>
         <Tree
           treeData={renderTreeNodes(treeData)}
           onSelect={(keys, event) => {
@@ -129,11 +139,17 @@ export const FileTreePage: React.FC = () => {
         />
       </Sider>
       <Content style={{ padding: 16 }}>
-        <h3>{selectedFileName ? `Обзор файла: ${selectedFileName}` : "Выберите файл для проверки"}</h3>
+        <h3>
+          {selectedFileName
+            ? `Обзор файла: ${selectedFileName}`
+            : 'Выберите файл для проверки'}
+        </h3>
         {selectedFileErrors.length > 0 ? (
           <ul>
             {selectedFileErrors.map((error, idx) => (
-              <li key={idx} style={{whiteSpace: 'pre-wrap'}}>{error}</li>
+              <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                {error}
+              </li>
             ))}
           </ul>
         ) : (
@@ -143,7 +159,7 @@ export const FileTreePage: React.FC = () => {
       <Button
         type="primary"
         style={{
-          position: "absolute",
+          position: 'absolute',
           bottom: 16,
           left: 16,
           right: 16,

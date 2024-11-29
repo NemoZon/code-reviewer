@@ -7,7 +7,7 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Статический пропмт
-const prompt = "Проверь данный файл на соответствие архитектурным стандартам";
+const prompt = "Проверь данный файл на соответствие архитектурным стандартам. ОТВЕТ ПРИНИМАЕТСЯ ТОЛЬКО НА ВЕЛИКОМ И МОГУЧЕМ РУССКОМ ЯЗЫКЕ.";
 
 // Функция для отправки запроса в LLM
 const sendToLLM = async (fileContent: string, prompt: string) => {

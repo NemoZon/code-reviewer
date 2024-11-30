@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Tree, Layout, message } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Link from '../../../shared/links/ui/Link';
+import { useStore } from '../../store/model/StoreContext';
 const { Content, Sider } = Layout;
 
 type FileNode = {
@@ -21,6 +22,15 @@ export const FileTreePage: React.FC = () => {
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const { store, setStore } = useStore();
+
+  useEffect(() => {
+    setStore((prev) => ({
+      ...prev,
+      repoTree: treeData,
+    }));
+  }, [setStore, treeData]);
 
   // Обработка выбора папки
   const handleSelectFolder = async () => {
@@ -143,7 +153,7 @@ export const FileTreePage: React.FC = () => {
         style={{ background: '#fff', overflow: 'auto', marginBottom: 60 }}
       >
         <Tree
-          treeData={renderTreeNodes(treeData)}
+          treeData={renderTreeNodes(store.repoTree)}
           onSelect={(keys, event) => {
             const node = event.node as FileNode;
             handleSelectFile(node);

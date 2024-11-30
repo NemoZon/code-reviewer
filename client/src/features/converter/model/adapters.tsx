@@ -161,8 +161,6 @@ function Code({
   children: string[] | string;
   language: string;
 }) {
-  console.log(children);
-
   return (
     <View>
       {/* {language && (

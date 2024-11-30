@@ -7,8 +7,6 @@ interface IPreview {
 }
 
 function Preview({ file }: IPreview) {
-  console.log(file);
-  
   return (
     <PDFViewer style={{ width: 700, aspectRatio: '4/5' }}>
       {jsonToPdf(file)}

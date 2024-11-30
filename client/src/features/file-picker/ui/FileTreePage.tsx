@@ -9,7 +9,7 @@ import { FileNode } from '../model/types';
 const { Content, Sider } = Layout;
 
 export const FileTreePage: React.FC = () => {
-  const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
+  const [selectedFileIssues, setSelectedFileIssues] = useState<any[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
 
@@ -17,6 +17,7 @@ export const FileTreePage: React.FC = () => {
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
+  const [allRequestsCompleted, setAllRequestsCompleted] = useState(false);
 
   const { store, setStore } = useStore();
 
@@ -36,8 +37,11 @@ export const FileTreePage: React.FC = () => {
 
       // Собираем все ts и tsx файлы и отправляем их на сервер
       const tsFiles = collectTsFiles(files);
-      tsFiles.forEach((file) => {
-        sendFileToServer(file);
+
+      // Отправляем файлы и отслеживаем завершение всех запросов
+      const promises = tsFiles.map((file) => sendFileToServer(file));
+      Promise.all(promises).then(() => {
+        setAllRequestsCompleted(true);
       });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
@@ -108,7 +112,7 @@ export const FileTreePage: React.FC = () => {
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
-      const response = await fetch('http://localhost:3000/api/lint', {
+      const response = await fetch('http://localhost:3002/api/lint', {
         method: 'POST',
         body: formData,
       });
@@ -142,11 +146,7 @@ export const FileTreePage: React.FC = () => {
 
   // Обработка клика на файл
   const handleSelectFile = (file: FileNode) => {
-
-    const findFileInTree = (
-      nodes: FileNode[],
-      targetKey: string,
-    ): FileNode | null => {
+    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
       for (const node of nodes) {
         if (node.key === targetKey) {
           return node;
@@ -170,18 +170,18 @@ export const FileTreePage: React.FC = () => {
     const response = fileResponses[file.key];
     if (response) {
       if (response.error) {
-        setSelectedFileErrors([response.error]);
+        setSelectedFileIssues([{ description: response.error }]);
       } else {
-        setSelectedFileErrors([
+        setSelectedFileIssues([
           response.llmResponse.choices[0].message.content,
         ]);
       }
     } else if (fileLoadingStatus[file.key]) {
       // Файл все еще обрабатывается
-      setSelectedFileErrors([]);
+      setSelectedFileIssues([]);
     } else {
       // Нет ответа и не загружается; возможно, произошла ошибка
-      setSelectedFileErrors(['Ответ недоступен.']);
+      setSelectedFileIssues([{ description: 'Ответ недоступен.' }]);
     }
   };
 
@@ -203,6 +203,36 @@ export const FileTreePage: React.FC = () => {
         isLeaf: node.isFile,
       };
     });
+
+  // Агрегируем отчеты для общего рапорта
+  const aggregatedReports = React.useMemo(() => {
+    const reports = [];
+
+    for (const fileKey in fileResponses) {
+      const response = fileResponses[fileKey].llmResponse.choises[0];
+      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+    
+      console.log(response);
+      
+      // Ищем все совпадения с помощью matchAll
+      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0]);
+      if (response && jsonData) {
+        const highCriticalIssues = jsonData.issues.filter(
+          (issue: any) =>
+            issue.criticality === 'High' || issue.criticality === 'Critical',
+        );
+
+        if (highCriticalIssues.length > 0) {
+          reports.push({
+            file: response.file,
+            issues: highCriticalIssues,
+          });
+        }
+      }
+    }
+
+    return reports;
+  }, [fileResponses]);
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -237,22 +267,22 @@ export const FileTreePage: React.FC = () => {
                 ? `Обзор файла: ${selectedFileName}`
                 : 'Выберите файл для проверки'}
             </h3>
-            {selectedFileErrors.length > 0 ? (
+            {selectedFileIssues.length > 0 ? (
               <>
                 <Link
                   to="/filepreview"
                   state={{
                     file: selectedFileName,
                     score: 80,
-                    issues: selectedFileErrors,
+                    issues: selectedFileIssues,
                   }}
                 >
                   Открыть рапорт в pdf
                 </Link>
                 <ul>
-                  {selectedFileErrors.map((error, idx) => (
+                  {selectedFileIssues.map((issue, idx) => (
                     <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                      {error}
+                      {issue.description || issue}
                     </li>
                   ))}
                 </ul>
@@ -263,6 +293,23 @@ export const FileTreePage: React.FC = () => {
           </div>
         )}
       </Content>
+      {/* Кнопка для открытия общего рапорта */}
+      {allRequestsCompleted && aggregatedReports.length > 0 && (
+        <Link
+          to="/generalreport"
+          state={{ reports: aggregatedReports }}
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: 100,
+            padding: 10,
+            paddingLeft: 40,
+            paddingRight: 40,
+          }}
+        >
+          Открыть общий рапорт
+        </Link>
+      )}
       <Button
         type="primary"
         style={{

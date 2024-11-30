@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Tree, Layout, message } from 'antd';
+import { Button, Tree, Layout, message, Spin } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -13,7 +13,10 @@ export const FileTreePage: React.FC = () => {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
+  const [fileLoadingStatus, setFileLoadingStatus] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   const { store, setStore } = useStore();
 
@@ -30,6 +33,12 @@ export const FileTreePage: React.FC = () => {
       const directoryHandle = await window.showDirectoryPicker();
       const files = await traverseDirectory(directoryHandle);
       setTreeData(files);
+
+      // Собираем все ts и tsx файлы и отправляем их на сервер
+      const tsFiles = collectTsFiles(files);
+      tsFiles.forEach((file) => {
+        sendFileToServer(file);
+      });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
     }
@@ -74,8 +83,66 @@ export const FileTreePage: React.FC = () => {
     return children;
   };
 
-  // Отправка файла на сервер для проверки
-  const lintFileOnServer = async (file: FileNode) => {
+  // Собираем все ts и tsx файлы из дерева
+  const collectTsFiles = (nodes: FileNode[]): FileNode[] => {
+    let files: FileNode[] = [];
+    for (const node of nodes) {
+      if (
+        node.isFile &&
+        (node.title.endsWith('.ts') || node.title.endsWith('.tsx'))
+      ) {
+        files.push(node);
+      }
+      if (node.children) {
+        files = files.concat(collectTsFiles(node.children));
+      }
+    }
+    return files;
+  };
+
+  // Отправка файла на сервер с логикой повторных попыток
+  const sendFileToServer = async (file: FileNode, retries = 3) => {
+    const formData = new FormData();
+    formData.append('file', new Blob([file.content || '']), file.title);
+    formData.append('path', file.path);
+
+    try {
+      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
+      const response = await fetch('http://localhost:3000/api/lint', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка на сервере');
+      }
+
+      const data = await response.json();
+
+      // Сохраняем ответ
+      setFileResponses((prev) => ({ ...prev, [file.key]: data }));
+    } catch (error) {
+      console.error(`Ошибка при отправке файла ${file.title}:`, error);
+      if (retries > 0) {
+        // Повторяем попытку после задержки
+        setTimeout(() => {
+          sendFileToServer(file, retries - 1);
+        }, 1000);
+      } else {
+        // Если попытки исчерпаны, сохраняем ошибку
+        setFileResponses((prev) => ({
+          ...prev,
+          [file.key]: { error: 'Не удалось обработать файл после нескольких попыток' },
+        }));
+      }
+    } finally {
+      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
+    }
+  };
+
+  // Обработка клика на файл
+  const handleSelectFile = (file: FileNode) => {
+
     const findFileInTree = (
       nodes: FileNode[],
       targetKey: string,
@@ -94,58 +161,48 @@ export const FileTreePage: React.FC = () => {
       return null;
     };
 
-    // Находим файл в `treeData`
-    const selectedFile = findFileInTree(store.repoTree, file.key);
+    const selectedFile = findFileInTree(store.repoTree, file.key)!;
 
-    if (!selectedFile || !selectedFile.content) {
-      message.error('Файл не найден или его содержимое отсутствует.');
-      return;
-    }
-    const formData = new FormData();
-    formData.append(
-      'file',
-      new Blob([selectedFile.content]),
-      selectedFile.title,
-    );
-    formData.append('path', selectedFile.path);
+    setSelectedFileName(selectedFile.title);
+    setSelectedFileContent(selectedFile.content);
 
-    try {
-      setIsLoading(true);
-      setSelectedFileContent(selectedFile.content);
-      const response = await fetch('http://localhost:3000/api/lint', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Ошибка на сервере');
+    // Получаем ответ для файла
+    const response = fileResponses[file.key];
+    if (response) {
+      if (response.error) {
+        setSelectedFileErrors([response.error]);
+      } else {
+        setSelectedFileErrors([
+          response.llmResponse.choices[0].message.content,
+        ]);
       }
-
-      const data = await response.json();
-      setSelectedFileErrors([data.llmResponse.choices[0].message.content]);
-      //   setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
-      setSelectedFileName(selectedFile.title);
-    } catch (error) {
-      console.error('Ошибка при отправке файла:', error);
-      message.error('Не удалось проверить файл.');
-    } finally {
-      setIsLoading(false);
+    } else if (fileLoadingStatus[file.key]) {
+      // Файл все еще обрабатывается
+      setSelectedFileErrors([]);
+    } else {
+      // Нет ответа и не загружается; возможно, произошла ошибка
+      setSelectedFileErrors(['Ответ недоступен.']);
     }
   };
 
-  // Обработка клика на файл
-  const handleSelectFile = (file: FileNode) => {
-    lintFileOnServer(file);
-  };
+  // Рендер узлов дерева с индикатором загрузки
+  const renderTreeNodes = (nodes: FileNode[]): any =>
+    nodes.map((node) => {
+      const isLoading = fileLoadingStatus[node.key];
+      const title = (
+        <span>
+          {node.title}
+          {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
+        </span>
+      );
 
-  // Рендер узлов дерева
-  const renderTreeNodes = (nodes: FileNode[]): React.ReactNode =>
-    nodes.map((node) => ({
-      title: node.title,
-      key: node.key,
-      children: node.children ? renderTreeNodes(node.children) : undefined,
-      isLeaf: node.isFile,
-    }));
+      return {
+        title,
+        key: node.key,
+        children: node.children ? renderTreeNodes(node.children) : undefined,
+        isLeaf: node.isFile,
+      };
+    });
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -169,7 +226,9 @@ export const FileTreePage: React.FC = () => {
         )}
       </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
-        {isLoading ? (
+        {fileLoadingStatus[
+          treeData.find((node) => node.title === selectedFileName)?.key || ''
+        ] ? (
           <h3>Файл обрабатывается...</h3>
         ) : (
           <div>

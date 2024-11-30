@@ -157,9 +157,7 @@ export const FileTreePage: React.FC = () => {
           </SyntaxHighlighter>
         )}
       </Content>
-      <Content
-        style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}
-      >
+      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {isLoading ? (
           <h3>Файл обрабатывается...</h3>
         ) : (
@@ -171,13 +169,6 @@ export const FileTreePage: React.FC = () => {
             </h3>
             {selectedFileErrors.length > 0 ? (
               <>
-                <ul>
-                  {selectedFileErrors.map((error, idx) => (
-                    <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                      {error}
-                    </li>
-                  ))}
-                </ul>
                 <Link
                   to="/filepreview"
                   state={{
@@ -188,6 +179,13 @@ export const FileTreePage: React.FC = () => {
                 >
                   Открыть рапорт в pdf
                 </Link>
+                <ul>
+                  {selectedFileErrors.map((error, idx) => (
+                    <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                      {error}
+                    </li>
+                  ))}
+                </ul>
               </>
             ) : (
               selectedFileName && <p>Ошибок не найдено</p>

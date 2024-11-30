@@ -7,8 +7,18 @@ export default function FilePreview() {
   const file = location.state;
   return (
     <div>
-      <Title>Отчет о файле</Title>
-      <Link to="/">User Test</Link>
+      <nav
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 30,
+        }}
+      >
+        <Link to="/">{'<= '}Вернуться назад</Link>
+        <Title>Отчет о файле</Title>
+      </nav>
       <Preview file={file} />
     </div>
   );

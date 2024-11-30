@@ -59,14 +59,11 @@ export function jsonToPdf(json: Json) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
-          <Text>Отчет {json.file}:</Text>
-        </View>
-        <Text>Отчет {json.file}:</Text>
-        <Text>Отчет {json.file}:</Text>
         <Text>Отчет {json.file}:</Text>
         <View style={styles.section}>
-          <Text>Section #2</Text>
+          {json.issues.map((text, index) => {
+            return <Text key={index}>{text}</Text>;
+          })}
         </View>
       </Page>
     </Document>

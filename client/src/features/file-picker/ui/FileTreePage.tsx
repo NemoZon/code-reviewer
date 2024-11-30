@@ -122,7 +122,7 @@ export const FileTreePage: React.FC = () => {
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
-      const response = await fetch('http://localhost:3002/api/lint', {
+      const response = await fetch('http://localhost:3000/api/lint', {
         method: 'POST',
         body: formData,
       });
@@ -239,7 +239,7 @@ export const FileTreePage: React.FC = () => {
       const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
     
       // Ищем все совпадения с помощью matchAll
-      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0][2]);
+      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)]?.[0]?.[2]);
       if (response && jsonData) {
         console.log(jsonData);
         
@@ -257,8 +257,6 @@ export const FileTreePage: React.FC = () => {
       }
     }
 
-    console.log(reports);
-    
     return reports;
   }, [fileResponses]);
 

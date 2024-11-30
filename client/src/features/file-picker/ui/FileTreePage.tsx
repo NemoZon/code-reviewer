@@ -227,7 +227,7 @@ export const FileTreePage: React.FC = () => {
       </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {fileLoadingStatus[
-          treeData.find((node) => node.title === selectedFileName)?.key || ''
+          store.repoTree.find((node) => node.title === selectedFileName)?.key || ''
         ] ? (
           <h3>Файл обрабатывается...</h3>
         ) : (

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router';
 interface ILink {
   to: string;
   children: string | string[];
-  state: object;
+  state?: object;
 }
 
 export default function Link({ to, children, state }: ILink) {

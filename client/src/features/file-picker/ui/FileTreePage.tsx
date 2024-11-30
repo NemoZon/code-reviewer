@@ -1,32 +1,44 @@
-import React, { useState } from 'react';
-import { Button, Tree, Layout, message, Spin } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Button, Tree, Layout, Spin } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import JSZip from 'jszip'; // Импорт JSZip
 import { unzipFile } from '../../jszipconverter/zipconverter'; // Функция разархивирования
 import Link from '../../../shared/links/ui/Link';
+import { useStore } from '../../store/model/StoreContext';
+import { FileNode } from '../model/types';
 const { Content, Sider } = Layout;
 
-type FileNode = {
-  title: string;
-  key: string;
-  children?: FileNode[];
-  isFile: boolean;
-  content?: string;
-  path: string;
-};
-
 export const FileTreePage: React.FC = () => {
-  const [treeData, setTreeData] = useState<FileNode[]>([]);
-  const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
+  const [selectedFileIssues, setSelectedFileIssues] = useState<any[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const { store, setStore } = useStore();
+
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
+
+  useEffect(() => {
+    if (store.lastFile?.file) {
+      setSelectedFileName(store.lastFile.file.title);
+      setSelectedFileContent(store.lastFile.file.content);
+    }
+    if (store.lastFile?.response) {
+      selectedFileIssues(store.lastFile.response);
+    }
+  }, []);
 
   const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
+  const [allRequestsCompleted, setAllRequestsCompleted] = useState(false);
+
+  const setTreeData = (state: FileNode[]) => {
+    setStore((prev) => ({
+      ...prev,
+      repoTree: state,
+    }));
+  };
 
   // Обработка выбора папки
   const handleSelectFolder = async () => {
@@ -37,8 +49,11 @@ export const FileTreePage: React.FC = () => {
 
       // Собираем все ts и tsx файлы и отправляем их на сервер
       const tsFiles = collectTsFiles(files);
-      tsFiles.forEach((file) => {
-        sendFileToServer(file);
+
+      // Отправляем файлы и отслеживаем завершение всех запросов
+      const promises = tsFiles.map((file) => sendFileToServer(file));
+      Promise.all(promises).then(() => {
+        setAllRequestsCompleted(true);
       });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
@@ -49,7 +64,7 @@ export const FileTreePage: React.FC = () => {
   // Рекурсивное чтение директорий
   const traverseDirectory = async (
     directoryHandle: FileSystemDirectoryHandle,
-    currentPath: string = ''
+    currentPath: string = '',
   ): Promise<FileNode[]> => {
     const children: FileNode[] = [];
 
@@ -121,7 +136,7 @@ export const FileTreePage: React.FC = () => {
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
-      const response = await fetch('http://localhost:3000/api/lint', {
+      const response = await fetch('http://localhost:3002/api/lint', {
         method: 'POST',
         body: formData,
       });
@@ -145,7 +160,9 @@ export const FileTreePage: React.FC = () => {
         // Если попытки исчерпаны, сохраняем ошибку
         setFileResponses((prev) => ({
           ...prev,
-          [file.key]: { error: 'Не удалось обработать файл после нескольких попыток' },
+          [file.key]: {
+            error: 'Не удалось обработать файл после нескольких попыток',
+          },
         }));
       }
     } finally {
@@ -155,11 +172,7 @@ export const FileTreePage: React.FC = () => {
 
   // Обработка клика на файл
   const handleSelectFile = (file: FileNode) => {
-
-    const findFileInTree = (
-      nodes: FileNode[],
-      targetKey: string,
-    ): FileNode | null => {
+    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
       for (const node of nodes) {
         if (node.key === targetKey) {
           return node;
@@ -167,6 +180,13 @@ export const FileTreePage: React.FC = () => {
         if (node.children) {
           const found = findFileInTree(node.children, targetKey);
           if (found) {
+            setStore((prev) => ({
+              ...prev,
+              lastFile: {
+                file: found,
+              },
+            }));
+
             return found;
           }
         }
@@ -174,8 +194,8 @@ export const FileTreePage: React.FC = () => {
       return null;
     };
 
-    const selectedFile = findFileInTree(treeData, file.key)!;
-    
+    const selectedFile = findFileInTree(store.repoTree, file.key)!;
+
     setSelectedFileName(selectedFile.title);
     setSelectedFileContent(selectedFile.content);
 
@@ -183,18 +203,25 @@ export const FileTreePage: React.FC = () => {
     const response = fileResponses[file.key];
     if (response) {
       if (response.error) {
-        setSelectedFileErrors([response.error]);
+        setSelectedFileIssues([{ description: response.error }]);
       } else {
-        setSelectedFileErrors([
+        setStore((prev) => ({
+          ...prev,
+          lastFile: {
+            ...prev.lastFile,
+            response: [response.llmResponse.choices[0].message.content],
+          },
+        }));
+        setSelectedFileIssues([
           response.llmResponse.choices[0].message.content,
         ]);
       }
     } else if (fileLoadingStatus[file.key]) {
       // Файл все еще обрабатывается
-      setSelectedFileErrors([]);
+      setSelectedFileIssues([]);
     } else {
       // Нет ответа и не загружается; возможно, произошла ошибка
-      setSelectedFileErrors(['Ответ недоступен.']);
+      setSelectedFileIssues([{ description: 'Ответ недоступен.' }]);
     }
   };
 
@@ -217,11 +244,43 @@ export const FileTreePage: React.FC = () => {
       };
     });
 
+  // Агрегируем отчеты для общего рапорта
+  const aggregatedReports = React.useMemo(() => {
+    const reports = [];
+
+    for (const fileKey in fileResponses) {
+      const response = fileResponses[fileKey].llmResponse.choices[0].message.content;
+      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+    
+      // Ищем все совпадения с помощью matchAll
+      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0][2]);
+      if (response && jsonData) {
+        console.log(jsonData);
+        
+        const highCriticalIssues = jsonData.issues.filter(
+          (issue: any) =>
+            issue.criticality === 'High' || issue.criticality === 'Critical',
+        );
+
+        if (highCriticalIssues.length > 0) {
+          reports.push({
+            file: response.file,
+            issues: highCriticalIssues,
+          });
+        }
+      }
+    }
+
+    console.log(reports);
+    
+    return reports;
+  }, [fileResponses]);
+
   return (
     <Layout style={{ height: '100vh' }}>
       <Sider width={300} style={{ background: '#fff', overflow: 'auto' }}>
         <Tree
-          treeData={renderTreeNodes(treeData)}
+          treeData={renderTreeNodes(store.repoTree)}
           onSelect={(keys, event) => {
             const node = event.node as FileNode;
             handleSelectFile(node);
@@ -237,7 +296,8 @@ export const FileTreePage: React.FC = () => {
       </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {fileLoadingStatus[
-          treeData.find((node) => node.title === selectedFileName)?.key || ''
+          store.repoTree.find((node) => node.title === selectedFileName)?.key ||
+            ''
         ] ? (
           <h3>Файл обрабатывается...</h3>
         ) : (
@@ -247,32 +307,51 @@ export const FileTreePage: React.FC = () => {
                 ? `Обзор файла: ${selectedFileName}`
                 : 'Выберите файл для проверки'}
             </h3>
-            {selectedFileErrors.length > 0 ? (
+            {selectedFileIssues.length > 0 ? (
               <>
                 <Link
                   to="/filepreview"
                   state={{
                     file: selectedFileName,
                     score: 80,
-                    issues: selectedFileErrors,
+                    issues: selectedFileIssues,
                   }}
                 >
                   Открыть рапорт в pdf
                 </Link>
                 <ul>
-                  {selectedFileErrors.map((error, idx) => (
+                  {selectedFileIssues.map((issue, idx) => (
                     <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                      {error}
+                      {issue.description || issue}
                     </li>
                   ))}
                 </ul>
               </>
+            ) : fileLoadingStatus ? (
+              <p>Обработка в процессе...</p>
             ) : (
               selectedFileName && <p>Ошибок не найдено</p>
             )}
           </div>
         )}
       </Content>
+      {/* Кнопка для открытия общего рапорта */}
+      {allRequestsCompleted && aggregatedReports.length > 0 && (
+        <Link
+          to="/filepreview"
+          state={aggregatedReports[0]}
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: 100,
+            padding: 10,
+            paddingLeft: 40,
+            paddingRight: 40,
+          }}
+        >
+          Открыть общий рапорт
+        </Link>
+      )}
       <Button
         type="primary"
         style={{

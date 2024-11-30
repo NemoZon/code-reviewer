@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router';
+import { useLocation } from 'react-router';
 import Preview from '../features/converter/ui/Preview';
 import { Title } from '../shared/text';
 
@@ -7,9 +7,20 @@ export default function FilePreview() {
   const file = location.state;
   return (
     <div>
-      <Title>Отчет о файле</Title>
-      <Link to="/">User Test</Link>
-      <Preview file={file} />
+      <nav
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 30,
+        }}
+      >
+        <Title>Отчет о файле</Title>
+      </nav>
+      <div style={{ justifyContent: 'center', display: 'flex' }}>
+        <Preview file={file} />
+      </div>
     </div>
   );
 }

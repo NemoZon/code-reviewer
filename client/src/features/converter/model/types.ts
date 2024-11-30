@@ -7,15 +7,11 @@ export enum Criticality {
 
 export type Json = {
   file: string;
-  score: number;
-  issues: string[];
-  // issues: [
-  //   {
-  //     type: string;
-  //     criticality: Criticality;
-  //     location: string;
-  //     description: string;
-  //     suggestion: string;
-  //   },
-  // ];
+  issues: {
+    type: string;
+    criticality: Criticality;
+    location: string;
+    description: string;
+    suggestion: string;
+  }[];
 };

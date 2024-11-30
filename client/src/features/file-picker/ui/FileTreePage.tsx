@@ -209,7 +209,7 @@ export const FileTreePage: React.FC = () => {
     const reports = [];
 
     for (const fileKey in fileResponses) {
-      const response = fileResponses[fileKey].llmResponse.choises[0];
+      const response = fileResponses[fileKey].llmResponse.choices[0].message.content;
       const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
     
       console.log(response);

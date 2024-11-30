@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Linter } from 'eslint';
+import JSZip from "jszip";
 
 export type FileNode = {
   key: string;

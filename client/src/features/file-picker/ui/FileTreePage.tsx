@@ -3,6 +3,8 @@ import { Button, Tree, Layout, message } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import JSZip from 'jszip'; // Импорт JSZip
+import { unzipFile } from '../../jszipconverter/zipconverter'; // Функция разархивирования
 import Link from '../../../shared/links/ui/Link';
 const { Content, Sider } = Layout;
 
@@ -19,7 +21,6 @@ export const FileTreePage: React.FC = () => {
   const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
-
   const [isLoading, setIsLoading] = useState(false);
 
   // Обработка выбора папки
@@ -30,6 +31,7 @@ export const FileTreePage: React.FC = () => {
       setTreeData(files);
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
+      message.error('Не удалось выбрать папку.');
     }
   };
 
@@ -41,27 +43,53 @@ export const FileTreePage: React.FC = () => {
     for await (const entry of directoryHandle.values()) {
       if (entry.kind === 'file') {
         const file = await entry.getFile();
-        const content = await file.text();
-        const fileKey = uid();
-        children.push({
-          title: file.name,
-          key: fileKey,
-          isFile: true,
-          content,
-        });
+
+        if (file.name.endsWith('.zip')) {
+          try {
+            const extractedFiles = await handleZipFile(file);
+            extractedFiles.forEach((content, name) => {
+              children.push({
+                title: name,
+                key: uid(),
+                isFile: true,
+                content,
+              });
+            });
+          } catch (error) {
+            console.error('Ошибка при обработке ZIP-файла:', error);
+            message.error(`Не удалось обработать ZIP: ${file.name}`);
+          }
+        } else {
+          const content = await file.text();
+          children.push({
+            title: file.name,
+            key: uid(),
+            isFile: true,
+            content,
+          });
+        }
       } else if (entry.kind === 'directory') {
         const subChildren = await traverseDirectory(entry);
-        const dirKey = uid();
-
         children.push({
           title: entry.name,
-          key: dirKey,
+          key: uid(),
           children: subChildren,
           isFile: false,
         });
       }
     }
     return children;
+  };
+
+  // Обработка ZIP-файла
+  const handleZipFile = async (file: File): Promise<Record<string, string>> => {
+    try {
+      const files = await unzipFile(file); // Используем вашу функцию
+      return files;
+    } catch (error) {
+      console.error('Ошибка при разархивировании файла:', error);
+      throw new Error('Не удалось разархивировать файл');
+    }
   };
 
   // Отправка файла на сервер для проверки
@@ -84,13 +112,13 @@ export const FileTreePage: React.FC = () => {
       return null;
     };
 
-    // Находим файл в `treeData`
     const selectedFile = findFileInTree(treeData, file.key);
 
     if (!selectedFile || !selectedFile.content) {
       message.error('Файл не найден или его содержимое отсутствует.');
       return;
     }
+
     const formData = new FormData();
     formData.append(
       'file',
@@ -112,7 +140,6 @@ export const FileTreePage: React.FC = () => {
 
       const data = await response.json();
       setSelectedFileErrors([data.llmResponse.choices[0].message.content]);
-      //   setSelectedFileErrors(data.errors.map((err: any) => `${err.message} (line ${err.line}, column ${err.column})`));
       setSelectedFileName(selectedFile.title);
     } catch (error) {
       console.error('Ошибка при отправке файла:', error);
@@ -138,10 +165,7 @@ export const FileTreePage: React.FC = () => {
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider
-        width={300}
-        style={{ background: '#fff', overflow: 'auto', marginBottom: 60 }}
-      >
+      <Sider width={300} style={{ background: '#fff', overflow: 'auto' }}>
         <Tree
           treeData={renderTreeNodes(treeData)}
           onSelect={(keys, event) => {
@@ -150,49 +174,11 @@ export const FileTreePage: React.FC = () => {
           }}
         />
       </Sider>
-      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
+      <Content style={{ padding: 16, overflowY: 'scroll' }}>
         {selectedFileContent && (
           <SyntaxHighlighter language="javascript" style={darcula}>
             {selectedFileContent}
           </SyntaxHighlighter>
-        )}
-      </Content>
-      <Content
-        style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}
-      >
-        {isLoading ? (
-          <h3>Файл обрабатывается...</h3>
-        ) : (
-          <div>
-            <h3>
-              {selectedFileName
-                ? `Обзор файла: ${selectedFileName}`
-                : 'Выберите файл для проверки'}
-            </h3>
-            {selectedFileErrors.length > 0 ? (
-              <>
-                <ul>
-                  {selectedFileErrors.map((error, idx) => (
-                    <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                      {error}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/filepreview"
-                  state={{
-                    file: selectedFileName,
-                    score: 80,
-                    issues: selectedFileErrors,
-                  }}
-                >
-                  Открыть рапорт в pdf
-                </Link>
-              </>
-            ) : (
-              selectedFileName && <p>Ошибок не найдено</p>
-            )}
-          </div>
         )}
       </Content>
       <Button
@@ -202,8 +188,6 @@ export const FileTreePage: React.FC = () => {
           bottom: 16,
           left: 100,
           padding: 10,
-          paddingLeft: 40,
-          paddingRight: 40,
         }}
         onClick={handleSelectFolder}
       >

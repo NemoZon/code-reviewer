@@ -1,3 +1,4 @@
+import style from 'react-syntax-highlighter/dist/esm/styles/hljs/a11y-dark';
 import { Json } from './types';
 import {
   Document,
@@ -17,6 +18,10 @@ Font.register({
       src: '/assets/font/Roboto/Roboto-Bold.ttf',
       fontWeight: 'bold',
     },
+    {
+      src: '/assets/font/Roboto/Roboto-Regular.ttf',
+      fontWeight: 'normal',
+    },
   ],
 });
 
@@ -29,6 +34,10 @@ const styles = StyleSheet.create({
   section: {
     margin: 30,
     padding: 10,
+  },
+  text: {
+    fontWeight: 'normal',
+    fontSize: 14,
   },
 });
 
@@ -62,7 +71,11 @@ export function jsonToPdf(json: Json) {
         <Text>Отчет {json.file}:</Text>
         <View style={styles.section}>
           {json.issues.map((text, index) => {
-            return <Text key={index}>{text}</Text>;
+            return (
+              <Text style={styles.text} key={index}>
+                {text}
+              </Text>
+            );
           })}
         </View>
       </Page>

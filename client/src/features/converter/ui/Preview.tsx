@@ -1,10 +1,15 @@
 import { PDFViewer } from '@react-pdf/renderer';
-import { jsonToPdf, mockJson } from '../model/Adapters';
+import { Json } from '../model/types';
+import { jsonToPdf } from '../model/adapters';
 
-function Preview() {
+interface IPreview {
+  file: Json;
+}
+
+function Preview({ file }: IPreview) {
   return (
     <PDFViewer style={{ width: 700, aspectRatio: '4/5' }}>
-      {jsonToPdf(mockJson)}
+      {jsonToPdf(file)}
     </PDFViewer>
   );
 }

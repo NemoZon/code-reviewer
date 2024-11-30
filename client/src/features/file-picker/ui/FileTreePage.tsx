@@ -4,6 +4,7 @@ import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FileDiff } from '../../file-diff/ui/FileDiff';
+import Link from '../../../shared/links/ui/Link';
 const { Content, Sider } = Layout;
 
 type FileNode = {
@@ -156,34 +157,54 @@ export const FileTreePage: React.FC = () => {
             {selectedFileContent}
           </SyntaxHighlighter>
         )}
-    {selectedFileContent && !isLoading && (
-        <FileDiff oldValue={selectedFileContent} newValue={selectedFileErrors[0].replace(/^(.*\n){3}/, '')} language='javascript' />
-    )}
-      </Content>
-      {!(selectedFileContent && !isLoading) && <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
-        {isLoading ? (
-          <h3>Файл обрабатывается...</h3>
-        ) : (
-          <div>
-            <h3>
-              {selectedFileName
-                ? `Обзор файла: ${selectedFileName}`
-                : 'Выберите файл для проверки'}
-            </h3>
-            {selectedFileErrors.length > 0 ? (
-              <ul>
-                {selectedFileErrors.map((error, idx) => (
-                  <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
-                    {error}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              selectedFileName && <p>Ошибок не найдено</p>
-            )}
-          </div>
+        {selectedFileContent && !isLoading && (
+          <FileDiff
+            oldValue={selectedFileContent}
+            newValue={selectedFileErrors[0].replace(/^(.*\n){3}/, '')}
+            language="javascript"
+          />
         )}
-      </Content>}
+      </Content>
+      {!(selectedFileContent && !isLoading) && (
+        <Content
+          style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}
+        >
+          {isLoading ? (
+            <h3>Файл обрабатывается...</h3>
+          ) : (
+            <div>
+              <h3>
+                {selectedFileName
+                  ? `Обзор файла: ${selectedFileName}`
+                  : 'Выберите файл для проверки'}
+              </h3>
+              {selectedFileErrors.length > 0 ? (
+                <>
+                  <ul>
+                    {selectedFileErrors.map((error, idx) => (
+                      <li key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/filepreview"
+                    state={{
+                      file: selectedFileName,
+                      score: 80,
+                      issues: selectedFileErrors,
+                    }}
+                  >
+                    Открыть рапорт в pdf
+                  </Link>
+                </>
+              ) : (
+                selectedFileName && <p>Ошибок не найдено</p>
+              )}
+            </div>
+          )}
+        </Content>
+      )}
       <Button
         type="primary"
         style={{

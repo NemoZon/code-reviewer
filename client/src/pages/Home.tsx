@@ -1,13 +1,5 @@
-import Preview from '../features/converter/ui/Preview';
-import Link from '../shared/links/ui/Link';
-import { Title } from '../shared/text';
+import { FileTreePage } from '../features/file-picker/ui/FileTreePage';
 
 export default function Home() {
-  return (
-    <div>
-      <Title>Welcome home</Title>
-      <Link to="/user/test">User Test</Link>
-      <Preview />
-    </div>
-  );
+  return <FileTreePage />;
 }

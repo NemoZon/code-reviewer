@@ -36,14 +36,23 @@ export const mockJson: Json = {
   file: 'App.tsx',
   score: 80,
   issues: [
-    {
-      type: 'Ошибка в именовании функции',
-      criticality: 'Medium',
-      location: 'Линия 12',
-      description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
-      suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
-    },
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    'Хук "myConst" должен начинатся с ключевого слова "use"',
   ],
+  // issues: [
+  //   {
+  //     type: 'Ошибка в именовании функции',
+  //     criticality: 'Medium',
+  //     location: 'Линия 12',
+  //     description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
+  //     suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
+  //   },
+  // ],
 };
 
 export function jsonToPdf(json: Json) {
@@ -53,6 +62,9 @@ export function jsonToPdf(json: Json) {
         <View style={styles.section}>
           <Text>Отчет {json.file}:</Text>
         </View>
+        <Text>Отчет {json.file}:</Text>
+        <Text>Отчет {json.file}:</Text>
+        <Text>Отчет {json.file}:</Text>
         <View style={styles.section}>
           <Text>Section #2</Text>
         </View>

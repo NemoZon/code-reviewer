@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Tree, Layout, message, Spin } from 'antd';
+import { Button, Tree, Layout, Spin } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -16,8 +16,6 @@ export const FileTreePage: React.FC = () => {
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
 
   useEffect(() => {
-    console.log('store.lastFile', store.lastFile);
-
     if (store.lastFile?.file) {
       setSelectedFileName(store.lastFile.file.title);
       setSelectedFileContent(store.lastFile.file.content);
@@ -287,6 +285,8 @@ export const FileTreePage: React.FC = () => {
                   ))}
                 </ul>
               </>
+            ) : fileLoadingStatus ? (
+              <p>Обработка в процессе...</p>
             ) : (
               selectedFileName && <p>Ошибок не найдено</p>
             )}

@@ -12,6 +12,7 @@ type FileNode = {
   children?: FileNode[];
   isFile: boolean;
   content?: string;
+  path: string;
 };
 
 export const FileTreePage: React.FC = () => {
@@ -36,33 +37,42 @@ export const FileTreePage: React.FC = () => {
   // Рекурсивное чтение директорий
   const traverseDirectory = async (
     directoryHandle: FileSystemDirectoryHandle,
+    currentPath: string = ''
   ): Promise<FileNode[]> => {
     const children: FileNode[] = [];
+  
     for await (const entry of directoryHandle.values()) {
+      const entryPath = `${currentPath}/${entry.name}`; // Формируем путь
+  
       if (entry.kind === 'file') {
         const file = await entry.getFile();
         const content = await file.text();
         const fileKey = uid();
+  
         children.push({
           title: file.name,
           key: fileKey,
           isFile: true,
           content,
+          path: entryPath, // Добавляем путь
         });
       } else if (entry.kind === 'directory') {
-        const subChildren = await traverseDirectory(entry);
+        const subChildren = await traverseDirectory(entry, entryPath); // Передаем обновленный путь
         const dirKey = uid();
-
+  
         children.push({
           title: entry.name,
           key: dirKey,
           children: subChildren,
           isFile: false,
+          path: entryPath, // Добавляем путь для директории
         });
       }
     }
+  
     return children;
   };
+  
 
   // Отправка файла на сервер для проверки
   const lintFileOnServer = async (file: FileNode) => {
@@ -96,6 +106,10 @@ export const FileTreePage: React.FC = () => {
       'file',
       new Blob([selectedFile.content]),
       selectedFile.title,
+    );
+    formData.append(
+      'path',
+      selectedFile.path,
     );
 
     try {

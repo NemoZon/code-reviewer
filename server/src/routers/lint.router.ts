@@ -82,12 +82,12 @@ Return your findings in JSON format:
 }`;
 
     if (!withHistory) {
-        return firstPart + rules + formatForTest;
+        return firstPart + rules + format;
     }
     return firstPartToExplain + rules + `
     Previous report:
     ` + response + `
-    Return ONLY corrected file and nothing more.`;
+    ` + format;
 }
 
 // Функция для отправки запроса в LLM

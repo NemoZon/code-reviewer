@@ -238,11 +238,11 @@ export const FileTreePage: React.FC = () => {
       const response = fileResponses[fileKey].llmResponse.choices[0].message.content;
       const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
     
-      console.log(response);
-      
       // Ищем все совпадения с помощью matchAll
-      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0]);
+      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0][2]);
       if (response && jsonData) {
+        console.log(jsonData);
+        
         const highCriticalIssues = jsonData.issues.filter(
           (issue: any) =>
             issue.criticality === 'High' || issue.criticality === 'Critical',
@@ -257,6 +257,8 @@ export const FileTreePage: React.FC = () => {
       }
     }
 
+    console.log(reports);
+    
     return reports;
   }, [fileResponses]);
 
@@ -325,8 +327,8 @@ export const FileTreePage: React.FC = () => {
       {/* Кнопка для открытия общего рапорта */}
       {allRequestsCompleted && aggregatedReports.length > 0 && (
         <Link
-          to="/generalreport"
-          state={{ reports: aggregatedReports }}
+          to="/filepreview"
+          state={aggregatedReports[0]}
           style={{
             position: 'fixed',
             top: 16,

@@ -112,25 +112,15 @@ const styles = StyleSheet.create({
 
 export const mockJson: Json = {
   file: 'App.tsx',
-  score: 80,
   issues: [
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
-    'Хук "myConst" должен начинатся с ключевого слова "use"',
+    {
+      type: 'Ошибка в именовании функции',
+      criticality: Criticality.Critical,
+      location: 'Линия 12',
+      description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
+      suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
+    },
   ],
-  // issues: [
-  //   {
-  //     type: 'Ошибка в именовании функции',
-  //     criticality: 'Medium',
-  //     location: 'Линия 12',
-  //     description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
-  //     suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
-  //   },
-  // ],
 };
 
 function IssueType({ children }: { children: string }) {
@@ -250,8 +240,14 @@ export function jsonToPdf(json: Json) {
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>Отчет {json.file}</Text>
         <View style={styles.section}>
-          {json.issues.map((text, index) => (
-            <View key={index}>{renderLine(text)}</View>
+          {json.issues.map((issue, index) => (
+            <View key={index}>
+              <IssueType>{issue.type}</IssueType>
+              <CriticalityText>{issue.criticality}</CriticalityText>
+              <Line>{issue.location}</Line>
+              {issue.description && renderLine(issue.description)}
+              {issue.suggestion && renderLine(issue.suggestion)}
+            </View>
           ))}
         </View>
       </Page>

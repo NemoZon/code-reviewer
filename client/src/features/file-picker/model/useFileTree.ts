@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { Linter } from 'eslint';
-
-export type FileNode = {
-  key: string;
-  title: string;
-  isLeaf: boolean;
-  status?: 'success' | 'error' | 'loading'; // Добавлено состояние загрузки
-  errors?: string[];
-  children?: FileNode[];
-};
+import { FileNode } from './types';
 
 async function getFileTree(
   directory: FileSystemDirectoryHandle,

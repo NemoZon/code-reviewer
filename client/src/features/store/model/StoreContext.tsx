@@ -6,12 +6,13 @@ import React, {
   Dispatch,
   SetStateAction,
 } from 'react';
-import { FileNode } from '../../file-picker/model/useFileTree';
+import { FileNode } from '../../file-picker/model/types';
 import { Json } from '../../converter/model/types';
 
 interface IStore {
   repoTree: FileNode[];
-  files: Json;
+  files: Json[];
+
 }
 
 // Тип значения, которое предоставляет контекст

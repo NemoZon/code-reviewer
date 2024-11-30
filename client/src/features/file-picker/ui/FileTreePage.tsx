@@ -5,18 +5,10 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
+import { FileNode } from '../model/types';
 const { Content, Sider } = Layout;
 
-type FileNode = {
-  title: string;
-  key: string;
-  children?: FileNode[];
-  isFile: boolean;
-  content?: string;
-};
-
 export const FileTreePage: React.FC = () => {
-  const [treeData, setTreeData] = useState<FileNode[]>([]);
   const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
@@ -25,12 +17,12 @@ export const FileTreePage: React.FC = () => {
 
   const { store, setStore } = useStore();
 
-  useEffect(() => {
+  const setTreeData = (state: FileNode[]) => {
     setStore((prev) => ({
       ...prev,
-      repoTree: treeData,
+      repoTree: state,
     }));
-  }, [setStore, treeData]);
+  };
 
   // Обработка выбора папки
   const handleSelectFolder = async () => {
@@ -46,21 +38,27 @@ export const FileTreePage: React.FC = () => {
   // Рекурсивное чтение директорий
   const traverseDirectory = async (
     directoryHandle: FileSystemDirectoryHandle,
+    currentPath: string = '',
   ): Promise<FileNode[]> => {
     const children: FileNode[] = [];
+
     for await (const entry of directoryHandle.values()) {
+      const entryPath = `${currentPath}/${entry.name}`; // Формируем путь
+
       if (entry.kind === 'file') {
         const file = await entry.getFile();
         const content = await file.text();
         const fileKey = uid();
+
         children.push({
           title: file.name,
           key: fileKey,
           isFile: true,
           content,
+          path: entryPath, // Добавляем путь
         });
       } else if (entry.kind === 'directory') {
-        const subChildren = await traverseDirectory(entry);
+        const subChildren = await traverseDirectory(entry, entryPath); // Передаем обновленный путь
         const dirKey = uid();
 
         children.push({
@@ -68,9 +66,11 @@ export const FileTreePage: React.FC = () => {
           key: dirKey,
           children: subChildren,
           isFile: false,
+          path: entryPath, // Добавляем путь для директории
         });
       }
     }
+
     return children;
   };
 
@@ -95,7 +95,7 @@ export const FileTreePage: React.FC = () => {
     };
 
     // Находим файл в `treeData`
-    const selectedFile = findFileInTree(treeData, file.key);
+    const selectedFile = findFileInTree(store.repoTree, file.key);
 
     if (!selectedFile || !selectedFile.content) {
       message.error('Файл не найден или его содержимое отсутствует.');
@@ -107,6 +107,7 @@ export const FileTreePage: React.FC = () => {
       new Blob([selectedFile.content]),
       selectedFile.title,
     );
+    formData.append('path', selectedFile.path);
 
     try {
       setIsLoading(true);

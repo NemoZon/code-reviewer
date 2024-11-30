@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router';
 import Preview from '../features/converter/ui/Preview';
 import { Title } from '../shared/text';
+import Link from '../shared/links/ui/Link';
 
 export default function FilePreview() {
   const location = useLocation();
@@ -16,6 +17,7 @@ export default function FilePreview() {
           gap: 30,
         }}
       >
+        <Link to="/">Вернуться назад</Link>
         <Title>Отчет о файле</Title>
       </nav>
       <div style={{ justifyContent: 'center', display: 'flex' }}>

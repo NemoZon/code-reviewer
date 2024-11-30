@@ -11,14 +11,28 @@ const { Content, Sider } = Layout;
 export const FileTreePage: React.FC = () => {
   const [selectedFileErrors, setSelectedFileErrors] = useState<string[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const { store, setStore } = useStore();
+
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
 
-  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
+  useEffect(() => {
+    console.log('store.lastFile', store.lastFile);
+
+    if (store.lastFile?.file) {
+      setSelectedFileName(store.lastFile.file.title);
+      setSelectedFileContent(store.lastFile.file.content);
+    }
+    if (store.lastFile?.response) {
+      setSelectedFileErrors(store.lastFile.response);
+    }
+  }, []);
+
+  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>(
+    {},
+  );
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
-
-  const { store, setStore } = useStore();
 
   const setTreeData = (state: FileNode[]) => {
     setStore((prev) => ({
@@ -132,7 +146,9 @@ export const FileTreePage: React.FC = () => {
         // Если попытки исчерпаны, сохраняем ошибку
         setFileResponses((prev) => ({
           ...prev,
-          [file.key]: { error: 'Не удалось обработать файл после нескольких попыток' },
+          [file.key]: {
+            error: 'Не удалось обработать файл после нескольких попыток',
+          },
         }));
       }
     } finally {
@@ -142,7 +158,6 @@ export const FileTreePage: React.FC = () => {
 
   // Обработка клика на файл
   const handleSelectFile = (file: FileNode) => {
-
     const findFileInTree = (
       nodes: FileNode[],
       targetKey: string,
@@ -154,6 +169,13 @@ export const FileTreePage: React.FC = () => {
         if (node.children) {
           const found = findFileInTree(node.children, targetKey);
           if (found) {
+            setStore((prev) => ({
+              ...prev,
+              lastFile: {
+                file: found,
+              },
+            }));
+
             return found;
           }
         }
@@ -172,6 +194,13 @@ export const FileTreePage: React.FC = () => {
       if (response.error) {
         setSelectedFileErrors([response.error]);
       } else {
+        setStore((prev) => ({
+          ...prev,
+          lastFile: {
+            ...prev.lastFile,
+            response: [response.llmResponse.choices[0].message.content],
+          },
+        }));
         setSelectedFileErrors([
           response.llmResponse.choices[0].message.content,
         ]);
@@ -227,7 +256,8 @@ export const FileTreePage: React.FC = () => {
       </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {fileLoadingStatus[
-          store.repoTree.find((node) => node.title === selectedFileName)?.key || ''
+          store.repoTree.find((node) => node.title === selectedFileName)?.key ||
+            ''
         ] ? (
           <h3>Файл обрабатывается...</h3>
         ) : (

@@ -12,7 +12,10 @@ import { Json } from '../../converter/model/types';
 interface IStore {
   repoTree: FileNode[];
   files: Json[];
-
+  lastFile: {
+    response?: string[];
+    file?: FileNode;
+  } | null;
 }
 
 // Тип значения, которое предоставляет контекст
@@ -29,6 +32,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [store, setStore] = useState<IStore>({
     repoTree: [],
     files: [],
+    lastFile: null,
   });
 
   return (

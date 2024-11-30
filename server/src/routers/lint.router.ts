@@ -59,7 +59,6 @@ If nothing critical in this code than you can send empty JSON.
 Return your findings in JSON format:
 {
     "file": "<file_name>",
-    "score": <final_score>,
     "issues": [
         {
             "type": "<issue_type>",
@@ -69,7 +68,8 @@ Return your findings in JSON format:
             "suggestion": "<suggested_fix>"
         }
     ]
-}`;
+}
+If in the suggestion or description will be code you have to append \`\`\`languageOfCode and than code.`;
 
 const getPropmt = (filename: string, withHistory: boolean, response: boolean) => {
     const firstPart = `You are a TypeScript code reviewer. Analyze the provided ${filename} for compliance with the following standards:`

@@ -194,6 +194,7 @@ export const FileTreePage: React.FC = () => {
         node.path?.indexOf('node_modules') === -1 &&
         (node.title.endsWith('.ts') ||
           node.title.endsWith('.tsx') ||
+          node.title.endsWith('.cs') ||
           node.title.endsWith('.py'))
       ) {
         files.push(node);
@@ -215,7 +216,7 @@ export const FileTreePage: React.FC = () => {
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
       const response = await fetch(
-        //'http://localhost:3000/api/lint', 
+        // 'http://localhost:3000/api/lint', 
         'https://code-reviewer-9vcp.onrender.com/api/lint', 
         {
         method: 'POST',
@@ -238,7 +239,7 @@ export const FileTreePage: React.FC = () => {
         await new Promise((resolve) => setTimeout(resolve, 2500));
         return sendFileToServer(file, retries - 1);
       } else {
-        // Если попытки исчерпаны, сохраняем ошибку
+        // Исчерпали попытки
         setFileResponses((prev) => ({
           ...prev,
           [file.key]: {
@@ -330,7 +331,7 @@ export const FileTreePage: React.FC = () => {
       const title = (
         <span>
           {node.title}
-          {(node.title.endsWith('.py') || node.title.endsWith('.ts') || node.title.endsWith('.tsx') && (
+          {(node.title.endsWith('.py') || node.title.endsWith('.ts') || node.title.endsWith('.tsx') || node.title.endsWith('.cs') && (
             <>
               {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
               {isError && <WarningOutlined style={{ marginLeft: 8 }} />}

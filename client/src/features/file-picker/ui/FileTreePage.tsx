@@ -9,11 +9,14 @@ import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
 import { FileNode } from '../model/types';
 import { mockJson } from '../../converter/model/adapters';
+import { Json } from '../../converter/model/types';
 const { Content, Sider } = Layout;
 
 export const FileTreePage: React.FC = () => {
   const [selectedFileIssues, setSelectedFileIssues] = useState<any[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [filePdfData, setFilePdfData] = useState<Json[]>([]);
+
   const { store, setStore } = useStore();
 
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
@@ -239,6 +242,15 @@ export const FileTreePage: React.FC = () => {
             response: [response.llmResponse.choices[0].message.content],
           },
         }));
+        const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g;
+        const jsonData = JSON.parse(
+          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
+        );
+        if (jsonData) {
+          console.log("jsonData", jsonData);
+          setFilePdfData([jsonData]);
+        }
+
         setSelectedFileIssues([
           response.llmResponse.choices[0].message.content,
         ]);
@@ -282,11 +294,6 @@ export const FileTreePage: React.FC = () => {
         const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
 
         // Ищем все совпадения с помощью matchAll
-        console.log(
-          '[...response?.matchAll(codeBlockRegex)]?.[0]?.[2]',
-          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
-        );
-
         const jsonData = JSON.parse(
           [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
         );
@@ -342,9 +349,9 @@ export const FileTreePage: React.FC = () => {
                 ? `Обзор файла: ${selectedFileName}`
                 : 'Выберите файл для проверки'}
             </h3>
-            {selectedFileIssues.length > 0 ? (
+            {filePdfData.length > 0 ? (
               <>
-                <Link to="/filepreview" state={mockJson}>
+                <Link to="/filepreview" state={filePdfData}>
                   Открыть рапорт в pdf
                 </Link>
                 <ul>
@@ -367,7 +374,7 @@ export const FileTreePage: React.FC = () => {
       {allRequestsCompleted && aggregatedReports.length > 0 && (
         <Link
           to="/filepreview"
-          state={aggregatedReports[0]}
+          state={aggregatedReports}
           style={{
             position: 'fixed',
             top: 16,

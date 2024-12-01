@@ -249,6 +249,7 @@ const renderLine = (text: string) => {
 };
 
 export function jsonToPdf(jsons: Json[]) {
+  console.log("jsons", jsons);
   return (
     <Document>
       <Page size="A4" style={styles.page}>

@@ -6,7 +6,7 @@ import axios from "axios";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Статический пропмт
+// Промпт для ts/react
 const prompt = `You will be provided with a TypeScript/React file along with its project path. Your task is to perform a code review to check if the file adheres to the project's standards. Focus on important remarks and emphasize any critical violations that may affect the stability or quality of the project.
 
 Please note that variable naming conventions are less important and can be excluded from your analysis.
@@ -71,6 +71,7 @@ Return your findings in JSON format:
 }
 If in the suggestion or description will be code you have to append \`\`\`languageOfCode and than code.`;
 
+// Промпт для питона
 const promptForPython = `You will be provided with a Python file along with its project path. Your task is to review the file and ensure compliance with the following project standards. Highlight critical violations that may affect stability, performance, or maintainability. Exclude minor formatting issues unless they cause functional errors or reduced clarity.
 
 Guidelines to Follow:
@@ -118,6 +119,61 @@ Return findings in JSON format:
 }
 If there are no critical issues, return an empty JSON object.`
 
+// Промпт для шарпов
+const promptForCs = `You will be provided with a C# file along with its project path. Your task is to review the file and ensure compliance with the project’s coding standards and best practices. Focus on critical issues that may impact functionality, maintainability, or performance. Exclude trivial style issues unless they directly affect code clarity or execution.
+
+Guidelines to Follow:
+
+Project and Dependencies:
+
+Ensure all NuGet packages are updated to their latest secure versions.
+Verify there are no redundant dependencies or absolute paths in references.
+Check for compliance with OpenShift or WPF guidelines if applicable.
+Code Quality:
+
+Ensure no unresolved TODO comments, unused code, or obsolete elements.
+Verify presence of meaningful comments for models and entities.
+Check for unused variables or return values.
+Architecture and Method Design:
+
+Validate correct IoC container registrations (e.g., HostedService as Singleton).
+Confirm null checks and exception handling are implemented at the correct level.
+Verify methods return appropriate types (e.g., avoid null collections).
+LINQ and Collections:
+
+Avoid redundant operations like ToArray() or ToList() where unnecessary.
+Ensure Chunk() is used instead of Skip().Take() where applicable.
+Check methods like Union() or Distinct() are used with proper overrides for Equals() and GetHashCode().
+Entity Framework:
+
+Use asynchronous materialization (ToListAsync()) where possible.
+Avoid redundant SaveChangesAsync() calls after individual actions.
+Ensure filtering is done at the database level, not in application code.
+Logging and Error Handling:
+
+Prevent duplicate exception messages in logs.
+Use proper logging syntax to avoid unnecessary string formatting overhead.
+Output Format:
+
+Return findings in JSON format:
+
+json
+Копировать код
+{
+    "file": "<file_name>",
+    "issues": [
+        {
+            "type": "<issue_type>",
+            "criticality": "<Critical/High>",
+            "location": "<line_number>",
+            "description": "<description>",
+            "suggestion": "<suggested_fix>"
+        }
+    ]
+}
+If there are no critical issues, return an empty JSON object.`
+
+
 // Функция для отправки запроса в LLM
 const sendToLLM = async (fileContent: string, filePath: string, prompt: string, needToReturn?: boolean) => {
   const url = "http://84.201.152.196:8020/v1/completions";
@@ -158,13 +214,18 @@ router.post("/lint", upload.single("file"), async (req: Request, res: Response) 
 
   const fileContent = req.file.buffer.toString("utf-8");
   const filePath = req.body.path;
-  const isPython = filePath.endsWith('.py');
-  console.log(filePath)
-  console.log(filePath.endsWith('.py'))
-  console.log(isPython)
+  let promptForCurrentLanguage = null;
+  if (filePath.endsWith('.py')) {
+    promptForCurrentLanguage = promptForPython;
+  } else if (filePath.endsWith('.cs')) {
+    promptForCurrentLanguage = promptForCs;
+  } else {
+    promptForCurrentLanguage = prompt;
+  }
+  
 
   try {
-    const llmResult = await sendToLLM(fileContent, filePath, (isPython ? promptForPython : prompt) + `\nFilePath: ${filePath}`, true);
+    const llmResult = await sendToLLM(fileContent, filePath, promptForCurrentLanguage + `\nFilePath: ${filePath}`, true);
     res.json({ llmResponse: llmResult });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

@@ -5,11 +5,9 @@ import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import JSZip from 'jszip'; // Импорт JSZip
-import { unzipFile } from '../../jszipconverter/zipconverter'; // Функция разархивирования
 import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
 import { FileNode } from '../model/types';
-import { mockJson } from '../../converter/model/adapters';
 import { Json } from '../../converter/model/types';
 const { Content, Sider } = Layout;
 
@@ -32,9 +30,7 @@ export const FileTreePage: React.FC = () => {
     }
   }, []);
 
-  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>(
-    {},
-  );
+  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
@@ -54,17 +50,45 @@ export const FileTreePage: React.FC = () => {
       const files = await traverseDirectory(directoryHandle);
       setTreeData(files);
 
-      // Собираем все ts и tsx файлы и отправляем их на сервер
+      // Собираем все ts, tsx и py файлы и отправляем их на сервер с ограничением по количеству запросов
       const tsFiles = collectTsFiles(files);
 
-      // Отправляем файлы и отслеживаем завершение всех запросов
-      const promises = tsFiles.map((file) => sendFileToServer(file));
-      Promise.all(promises).then(() => {
-        setAllRequestsCompleted(true);
-      });
+      // Отправляем файлы с ограничением на количество одновременно выполняемых запросов
+      await sendFilesWithLimit(tsFiles, 5);
+
+      setAllRequestsCompleted(true);
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
     }
+  };
+
+  // Функция для отправки файлов с ограничением на количество одновременных запросов
+  const sendFilesWithLimit = async (files: FileNode[], limit: number) => {
+    let index = 0;
+    let activeRequests = 0;
+
+    return new Promise<void>((resolve, reject) => {
+      const next = () => {
+        while (activeRequests < limit && index < files.length) {
+          const file = files[index++];
+          activeRequests++;
+
+          sendFileToServer(file)
+            .catch((error) => {
+              console.error(`Ошибка при отправке файла ${file.title}:`, error);
+            })
+            .finally(() => {
+              activeRequests--;
+              if (index === files.length && activeRequests === 0) {
+                resolve();
+              } else {
+                next();
+              }
+            });
+        }
+      };
+      next();
+    });
   };
 
   // Рекурсивное чтение директорий
@@ -84,14 +108,7 @@ export const FileTreePage: React.FC = () => {
 
         // Если это ZIP файл, распаковываем его
         if (file.name.endsWith('.zip')) {
-          const zipContent = await handleZipFile(file);
-          children.push({
-            title: file.name,
-            key: fileKey,
-            isFile: true,
-            content: zipContent, // Содержимое архива
-            path: entryPath,
-          });
+          await handleZipFile(file);
         } else {
           children.push({
             title: file.name,
@@ -107,7 +124,7 @@ export const FileTreePage: React.FC = () => {
 
         children.push({
           title: entry.name,
-          key: uid(),
+          key: dirKey,
           children: subChildren,
           isFile: false,
           path: entryPath, // Добавляем путь для директории
@@ -154,13 +171,15 @@ export const FileTreePage: React.FC = () => {
     }));
   };
 
-  // Собираем все ts и tsx файлы из дерева
+  // Собираем все ts, tsx и py файлы из дерева
   const collectTsFiles = (nodes: FileNode[]): FileNode[] => {
     let files: FileNode[] = [];
     for (const node of nodes) {
       if (
         node.isFile &&
-        (node.title.endsWith('.ts') || node.title.endsWith('.tsx') || node.title.endsWith('.py'))
+        (node.title.endsWith('.ts') ||
+          node.title.endsWith('.tsx') ||
+          node.title.endsWith('.py'))
       ) {
         files.push(node);
       }
@@ -172,7 +191,7 @@ export const FileTreePage: React.FC = () => {
   };
 
   // Отправка файла на сервер с логикой повторных попыток
-  const sendFileToServer = async (file: FileNode, retries = 3) => {
+  const sendFileToServer = async (file: FileNode, retries = 3): Promise<void> => {
     const formData = new FormData();
     formData.append('file', new Blob([file.content || '']), file.title);
     formData.append('path', file.path!);
@@ -192,14 +211,12 @@ export const FileTreePage: React.FC = () => {
 
       // Сохраняем ответ
       setFileResponses((prev) => ({ ...prev, [file.key]: data }));
-      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
     } catch (error) {
       console.error(`Ошибка при отправке файла ${file.title}:`, error);
       if (retries > 0) {
         // Повторяем попытку после задержки
-        setTimeout(() => {
-          sendFileToServer(file, retries - 1);
-        }, 1000);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return sendFileToServer(file, retries - 1);
       } else {
         // Если попытки исчерпаны, сохраняем ошибку
         setFileResponses((prev) => ({
@@ -208,15 +225,13 @@ export const FileTreePage: React.FC = () => {
             error: 'Не удалось обработать файл после нескольких попыток',
           },
         }));
-        setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
       }
+    } finally {
+      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
     }
   };
 
-  const findFileInTree = (
-    nodes: FileNode[],
-    targetKey: string,
-  ): FileNode | null => {
+  const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
     for (const node of nodes) {
       if (node.key === targetKey) {
         return node;
@@ -270,17 +285,13 @@ export const FileTreePage: React.FC = () => {
           },
         }));
         const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g;
-        const jsonData = JSON.parse(
-          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
-        );
+        const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)]?.[0]?.[2]);
         if (jsonData) {
           console.log('jsonData', jsonData);
           setFilePdfData([jsonData]);
         }
 
-        setSelectedFileIssues([
-          response.llmResponse.choices[0].message.content,
-        ]);
+        setSelectedFileIssues([response.llmResponse.choices[0].message.content]);
       }
     } else if (fileLoadingStatus[file.key]) {
       // Файл все еще обрабатывается
@@ -302,7 +313,9 @@ export const FileTreePage: React.FC = () => {
           {node.title}
           {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
           {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
-          {!(isLoading || isError) && <CheckOutlined style={{ marginLeft: 8 }} />}
+          {!(isLoading || isError) && !node.children && (
+            <CheckOutlined style={{ marginLeft: 8 }} />
+          )}
         </span>
       );
 
@@ -318,20 +331,17 @@ export const FileTreePage: React.FC = () => {
   const aggregatedReports = React.useMemo(() => {
     const reports = [];
     for (const fileKey in fileResponses) {
-      if (fileKey.error) return;
-      const response =
-        fileResponses[fileKey]?.llmResponse?.choices[0]?.message.content;
-      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+      const response = fileResponses[fileKey];
+      if (response.error) continue;
+      const messageContent = response?.llmResponse?.choices[0]?.message.content;
+      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g;
       let jsonData;
       try {
-        // Ищем все совпадения с помощью matchAll
-        jsonData = JSON.parse(
-          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
-        );
+        jsonData = JSON.parse([...messageContent?.matchAll(codeBlockRegex)]?.[0]?.[2]);
       } catch (error) {
-        console.log(error);
+        console.error('Ошибка при парсинге JSON:', error);
       }
-      if (response && jsonData) {
+      if (messageContent && jsonData) {
         const highCriticalIssues = jsonData.issues.filter(
           (issue: any) =>
             issue.criticality === 'High' || issue.criticality === 'Critical',
@@ -371,8 +381,7 @@ export const FileTreePage: React.FC = () => {
       </Content>
       <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
         {fileLoadingStatus[
-          store.repoTree.find((node) => node.title === selectedFileName)?.key ||
-            ''
+          store.repoTree.find((node) => node.title === selectedFileName)?.key || ''
         ] ? (
           <h3>Файл обрабатывается...</h3>
         ) : (

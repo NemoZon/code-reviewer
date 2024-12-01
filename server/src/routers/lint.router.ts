@@ -159,9 +159,12 @@ router.post("/lint", upload.single("file"), async (req: Request, res: Response) 
   const fileContent = req.file.buffer.toString("utf-8");
   const filePath = req.body.path;
   const isPython = filePath.endsWith('.py');
+  console.log(filePath)
+  console.log(filePath.endsWith('.py'))
+  console.log(isPython)
 
   try {
-    const llmResult = await sendToLLM(fileContent, filePath, (isPython ? prompt : promptForPython) + `\nFilePath: ${filePath}`, true);
+    const llmResult = await sendToLLM(fileContent, filePath, (isPython ? promptForPython : prompt) + `\nFilePath: ${filePath}`, true);
     res.json({ llmResponse: llmResult });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

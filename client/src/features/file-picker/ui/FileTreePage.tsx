@@ -214,7 +214,10 @@ export const FileTreePage: React.FC = () => {
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
-      const response = await fetch('http://localhost:3000/api/lint', {
+      const response = await fetch(
+        //'http://localhost:3000/api/lint', 
+        'https://code-reviewer-9vcp.onrender.com/api/lint', 
+        {
         method: 'POST',
         body: formData,
       });

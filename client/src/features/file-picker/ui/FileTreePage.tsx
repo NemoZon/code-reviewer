@@ -144,7 +144,7 @@ export const FileTreePage: React.FC = () => {
     for (const node of nodes) {
       if (
         node.isFile &&
-        (node.title.endsWith('.ts') || node.title.endsWith('.tsx'))
+        (node.title.endsWith('.ts') || node.title.endsWith('.tsx') || node.title.endsWith('.py'))
       ) {
         files.push(node);
       }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Tree, Layout, Spin } from 'antd';
+import { Button, Tree, Layout, Spin, message } from 'antd';
 import { WarningOutlined, CheckOutlined } from '@ant-design/icons';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -52,6 +52,8 @@ export const FileTreePage: React.FC = () => {
 
       // Собираем все ts, tsx и py файлы и отправляем их на сервер с ограничением по количеству запросов
       const tsFiles = collectTsFiles(files);
+
+      message.success('Возможность скачать отчет по проекту появится после анализа всех файлов приложения! Пожалуйста, дождитесь соответствующей кнопки в правой части экрана.')
 
       // Отправляем файлы с ограничением на количество одновременно выполняемых запросов
       await sendFilesWithLimit(tsFiles, 5);
@@ -180,6 +182,8 @@ export const FileTreePage: React.FC = () => {
 
     // Собираем файлы с необходимыми расширениями из zip
     const tsFiles = collectTsFiles([zipFileNode]);
+
+    message.success('Возможность скачать отчет по проекту появится после анализа всех файлов приложения! Пожалуйста, дождитесь соответствующей кнопки в правой части экрана.')
 
     // Отправляем файлы на сервер с ограничением по количеству запросов
     await sendFilesWithLimit(tsFiles, 5);
@@ -417,7 +421,7 @@ export const FileTreePage: React.FC = () => {
             </h3>
             {selectedFileIssues.length > 0 ? (
               <>
-                <Link to="/filepreview" state={selectedFileIssues}>
+                <Link to="/filepreview" state={selectedFileIssues} target='_blank'>
                   Открыть рапорт в pdf
                 </Link>
                 <ul>

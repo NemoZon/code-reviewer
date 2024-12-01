@@ -46,26 +46,52 @@ export const FileTreePage: React.FC = () => {
     }));
   };
 
-  // Обработка выбора папки
+    // Ограничение количества запросов
+  const sendFilesWithLimit = async (files: FileNode[], limit = 5) => {
+    const queue: Promise<any>[] = []; // Очередь активных запросов
+    const results: any[] = []; // Массив результатов запросов
+
+    for (const file of files) {
+      // Добавляем запрос в очередь
+      const request = sendFileToServer(file).then((result) => {
+        results.push(result);
+        return result;
+      });
+
+      queue.push(request);
+
+      // Если активных запросов больше лимита, ждем завершения одного из них
+      if (queue.length >= limit) {
+        await Promise.race(queue);
+        queue.splice(queue.findIndex((q) => q === request), 1); // Удаляем завершенный запрос
+      }
+    }
+
+    // Ждем завершения оставшихся запросов
+    await Promise.all(queue);
+
+    // Устанавливаем флаг завершения всех запросов
+    setAllRequestsCompleted(true);
+
+    return results;
+  };
+
+  // Вызов с ограничением количества запросов
   const handleSelectFolder = async () => {
     try {
       const directoryHandle = await window.showDirectoryPicker();
       const files = await traverseDirectory(directoryHandle);
       setTreeData(files);
 
-      // Собираем все ts и tsx файлы и отправляем их на сервер
+      // Собираем все ts и tsx файлы и отправляем их на сервер с ограничением по количеству запросов
       const tsFiles = collectTsFiles(files);
-
-      // Отправляем файлы и отслеживаем завершение всех запросов
-      const promises = tsFiles.map((file) => sendFileToServer(file));
-      Promise.all(promises).then(() => {
-        setAllRequestsCompleted(true);
-      });
+      await sendFilesWithLimit(tsFiles, 5);
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
       message.error('Не удалось выбрать папку.');
     }
   };
+
 
   // Рекурсивное чтение директорий
   const traverseDirectory = async (

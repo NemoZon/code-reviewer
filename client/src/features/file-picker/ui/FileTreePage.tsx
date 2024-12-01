@@ -122,13 +122,15 @@ export const FileTreePage: React.FC = () => {
         const subChildren = await traverseDirectory(entry, entryPath); // Передаем обновленный путь
         const dirKey = uid();
 
-        children.push({
-          title: entry.name,
-          key: dirKey,
-          children: subChildren,
-          isFile: false,
-          path: entryPath, // Добавляем путь для директории
-        });
+        if (entry.name !== 'node_modules') {
+          children.push({
+            title: entry.name,
+            key: dirKey,
+            children: subChildren,
+            isFile: false,
+            path: entryPath, // Добавляем путь для директории
+          });
+        }
       }
     }
 

@@ -191,7 +191,7 @@ export const FileTreePage: React.FC = () => {
   };
 
   // Отправка файла на сервер с логикой повторных попыток
-  const sendFileToServer = async (file: FileNode, retries = 3): Promise<void> => {
+  const sendFileToServer = async (file: FileNode, retries = 2): Promise<void> => {
     const formData = new FormData();
     formData.append('file', new Blob([file.content || '']), file.title);
     formData.append('path', file.path!);
@@ -215,7 +215,7 @@ export const FileTreePage: React.FC = () => {
       console.error(`Ошибка при отправке файла ${file.title}:`, error);
       if (retries > 0) {
         // Повторяем попытку после задержки
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 2500));
         return sendFileToServer(file, retries - 1);
       } else {
         // Если попытки исчерпаны, сохраняем ошибку

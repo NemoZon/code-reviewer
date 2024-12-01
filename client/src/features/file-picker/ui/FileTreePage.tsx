@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Tree, Layout, Spin } from 'antd';
-import { WarningOutlined } from '@ant-design/icons';
+import { WarningOutlined, CheckOutlined } from '@ant-design/icons';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -64,7 +64,6 @@ export const FileTreePage: React.FC = () => {
       });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
-      message.error('Не удалось выбрать папку.');
     }
   };
 
@@ -160,7 +159,7 @@ export const FileTreePage: React.FC = () => {
   const sendFileToServer = async (file: FileNode, retries = 3) => {
     const formData = new FormData();
     formData.append('file', new Blob([file.content || '']), file.title);
-    formData.append('path', file.path);
+    formData.append('path', file.path!);
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
@@ -198,33 +197,33 @@ export const FileTreePage: React.FC = () => {
     }
   };
 
-  // Обработка клика на файл
-  const handleSelectFile = (file: FileNode) => {
-    const findFileInTree = (
-      nodes: FileNode[],
-      targetKey: string,
-    ): FileNode | null => {
-      for (const node of nodes) {
-        if (node.key === targetKey) {
-          return node;
-        }
-        if (node.children) {
-          const found = findFileInTree(node.children, targetKey);
-          if (found) {
-            setStore((prev) => ({
-              ...prev,
-              lastFile: {
-                file: found,
-              },
-            }));
+  const findFileInTree = (
+    nodes: FileNode[],
+    targetKey: string,
+  ): FileNode | null => {
+    for (const node of nodes) {
+      if (node.key === targetKey) {
+        return node;
+      }
+      if (node.children) {
+        const found = findFileInTree(node.children, targetKey);
+        if (found) {
+          setStore((prev) => ({
+            ...prev,
+            lastFile: {
+              file: found,
+            },
+          }));
 
-            return found;
-          }
+          return found;
         }
       }
-      return null;
-    };
+    }
+    return null;
+  };
 
+  // Обработка клика на файл
+  const handleSelectFile = (file: FileNode) => {
     const selectedFile = findFileInTree(store.repoTree, file.key)!;
 
     setSelectedFileName(selectedFile.title);
@@ -269,13 +268,16 @@ export const FileTreePage: React.FC = () => {
   const renderTreeNodes = (nodes: FileNode[]): any =>
     nodes.map((node) => {
       const isLoading = fileLoadingStatus[node.key];
-      const isError = fileResponses[node.key].error;
+      console.log(fileResponses);
+      console.log(node.key);
+      const isError = fileResponses[node.key]?.error;
 
       const title = (
         <span>
           {node.title}
           {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
           {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
+          {!(isLoading || isError) && <CheckOutlined style={{ marginLeft: 8 }} />}
         </span>
       );
 
@@ -290,6 +292,7 @@ export const FileTreePage: React.FC = () => {
   // Агрегируем отчеты для общего рапорта
   const aggregatedReports = React.useMemo(() => {
     const reports = [];
+    console.log(fileResponses);
     for (const fileKey in fileResponses) {
       const response =
         fileResponses[fileKey].llmResponse.choices[0].message.content;
@@ -311,7 +314,7 @@ export const FileTreePage: React.FC = () => {
 
         if (highCriticalIssues.length > 0) {
           reports.push({
-            file: response.file,
+            file: findFileInTree(store.repoTree, fileKey)!,
             issues: highCriticalIssues,
           });
         }

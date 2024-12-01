@@ -176,6 +176,7 @@ export const FileTreePage: React.FC = () => {
 
       // Сохраняем ответ
       setFileResponses((prev) => ({ ...prev, [file.key]: data }));
+      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
     } catch (error) {
       console.error(`Ошибка при отправке файла ${file.title}:`, error);
       if (retries > 0) {
@@ -191,9 +192,8 @@ export const FileTreePage: React.FC = () => {
             error: 'Не удалось обработать файл после нескольких попыток',
           },
         }));
+        setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
       }
-    } finally {
-      setFileLoadingStatus((prev) => ({ ...prev, [file.key]: false }));
     }
   };
 
@@ -290,7 +290,6 @@ export const FileTreePage: React.FC = () => {
   // Агрегируем отчеты для общего рапорта
   const aggregatedReports = React.useMemo(() => {
     const reports = [];
-    console.log(fileResponses);
     for (const fileKey in fileResponses) {
       if (fileKey.error) return;
       const response =

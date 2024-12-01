@@ -27,7 +27,7 @@ export const FileTreePage: React.FC = () => {
       setSelectedFileContent(store.lastFile.file.content);
     }
     if (store.lastFile?.response) {
-      selectedFileIssues(store.lastFile.response);
+      setSelectedFileIssues(store.lastFile.response);
     }
   }, []);
 
@@ -46,52 +46,26 @@ export const FileTreePage: React.FC = () => {
     }));
   };
 
-    // Ограничение количества запросов
-  const sendFilesWithLimit = async (files: FileNode[], limit = 5) => {
-    const queue: Promise<any>[] = []; // Очередь активных запросов
-    const results: any[] = []; // Массив результатов запросов
-
-    for (const file of files) {
-      // Добавляем запрос в очередь
-      const request = sendFileToServer(file).then((result) => {
-        results.push(result);
-        return result;
-      });
-
-      queue.push(request);
-
-      // Если активных запросов больше лимита, ждем завершения одного из них
-      if (queue.length >= limit) {
-        await Promise.race(queue);
-        queue.splice(queue.findIndex((q) => q === request), 1); // Удаляем завершенный запрос
-      }
-    }
-
-    // Ждем завершения оставшихся запросов
-    await Promise.all(queue);
-
-    // Устанавливаем флаг завершения всех запросов
-    setAllRequestsCompleted(true);
-
-    return results;
-  };
-
-  // Вызов с ограничением количества запросов
+  // Обработка выбора папки
   const handleSelectFolder = async () => {
     try {
       const directoryHandle = await window.showDirectoryPicker();
       const files = await traverseDirectory(directoryHandle);
       setTreeData(files);
 
-      // Собираем все ts и tsx файлы и отправляем их на сервер с ограничением по количеству запросов
+      // Собираем все ts и tsx файлы и отправляем их на сервер
       const tsFiles = collectTsFiles(files);
-      await sendFilesWithLimit(tsFiles, 5);
+
+      // Отправляем файлы и отслеживаем завершение всех запросов
+      const promises = tsFiles.map((file) => sendFileToServer(file));
+      Promise.all(promises).then(() => {
+        setAllRequestsCompleted(true);
+      });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
       message.error('Не удалось выбрать папку.');
     }
   };
-
 
   // Рекурсивное чтение директорий
   const traverseDirectory = async (
@@ -273,7 +247,7 @@ export const FileTreePage: React.FC = () => {
           [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
         );
         if (jsonData) {
-          console.log("jsonData", jsonData);
+          console.log('jsonData', jsonData);
           setFilePdfData([jsonData]);
         }
 
@@ -311,37 +285,35 @@ export const FileTreePage: React.FC = () => {
 
   // Агрегируем отчеты для общего рапорта
   const aggregatedReports = React.useMemo(() => {
-    try {
-      const reports = [];
-
-      for (const fileKey in fileResponses) {
-        const response =
-          fileResponses[fileKey].llmResponse.choices[0].message.content;
-        const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
-
+    const reports = [];
+    for (const fileKey in fileResponses) {
+      const response =
+        fileResponses[fileKey].llmResponse.choices[0].message.content;
+      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+      let jsonData;
+      try {
         // Ищем все совпадения с помощью matchAll
-        const jsonData = JSON.parse(
+        jsonData = JSON.parse(
           [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
         );
-        if (response && jsonData) {
-          const highCriticalIssues = jsonData.issues.filter(
-            (issue: any) =>
-              issue.criticality === 'High' || issue.criticality === 'Critical',
-          );
+      } catch (error) {
+        console.log(error);
+      }
+      if (response && jsonData) {
+        const highCriticalIssues = jsonData.issues.filter(
+          (issue: any) =>
+            issue.criticality === 'High' || issue.criticality === 'Critical',
+        );
 
-          if (highCriticalIssues.length > 0) {
-            reports.push({
-              file: response.file,
-              issues: highCriticalIssues,
-            });
-          }
+        if (highCriticalIssues.length > 0) {
+          reports.push({
+            file: response.file,
+            issues: highCriticalIssues,
+          });
         }
       }
-      return reports;
-    } catch (error) {
-      console.log(error);
-      return [];
     }
+    return reports;
   }, [fileResponses]);
 
   return (
@@ -375,9 +347,9 @@ export const FileTreePage: React.FC = () => {
                 ? `Обзор файла: ${selectedFileName}`
                 : 'Выберите файл для проверки'}
             </h3>
-            {filePdfData.length > 0 ? (
+            {selectedFileIssues.length > 0 ? (
               <>
-                <Link to="/filepreview" state={filePdfData}>
+                <Link to="/filepreview" state={selectedFileIssues}>
                   Открыть рапорт в pdf
                 </Link>
                 <ul>

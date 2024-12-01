@@ -25,7 +25,9 @@ export const FileTreePage: React.FC = () => {
     }
   }, []);
 
-  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
+  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>(
+    {},
+  );
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
@@ -158,7 +160,10 @@ export const FileTreePage: React.FC = () => {
 
   // Обработка клика на файл
   const handleSelectFile = (file: FileNode) => {
-    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
+    const findFileInTree = (
+      nodes: FileNode[],
+      targetKey: string,
+    ): FileNode | null => {
       for (const node of nodes) {
         if (node.key === targetKey) {
           return node;
@@ -232,32 +237,38 @@ export const FileTreePage: React.FC = () => {
 
   // Агрегируем отчеты для общего рапорта
   const aggregatedReports = React.useMemo(() => {
-    const reports = [];
+    try {
+      const reports = [];
 
-    for (const fileKey in fileResponses) {
-      const response = fileResponses[fileKey].llmResponse.choices[0].message.content;
-      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
-    
-      // Ищем все совпадения с помощью matchAll
-      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)]?.[0]?.[2]);
-      if (response && jsonData) {
-        console.log(jsonData);
-        
-        const highCriticalIssues = jsonData.issues.filter(
-          (issue: any) =>
-            issue.criticality === 'High' || issue.criticality === 'Critical',
+      for (const fileKey in fileResponses) {
+        const response =
+          fileResponses[fileKey].llmResponse.choices[0].message.content;
+        const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+
+        // Ищем все совпадения с помощью matchAll
+        console.log('[...response?.matchAll(codeBlockRegex)]?.[0]?.[2]', [...response?.matchAll(codeBlockRegex)]?.[0]?.[2]);
+
+        const jsonData = JSON.parse(
+          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
         );
+        if (response && jsonData) {
+          const highCriticalIssues = jsonData.issues.filter(
+            (issue: any) =>
+              issue.criticality === 'High' || issue.criticality === 'Critical',
+          );
 
-        if (highCriticalIssues.length > 0) {
-          reports.push({
-            file: response.file,
-            issues: highCriticalIssues,
-          });
+          if (highCriticalIssues.length > 0) {
+            reports.push({
+              file: response.file,
+              issues: highCriticalIssues,
+            });
+          }
         }
       }
+      return reports;
+    } catch (error) {
+      console.log(error);
     }
-
-    return reports;
   }, [fileResponses]);
 
   return (

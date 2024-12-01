@@ -268,8 +268,6 @@ export const FileTreePage: React.FC = () => {
   const renderTreeNodes = (nodes: FileNode[]): any =>
     nodes.map((node) => {
       const isLoading = fileLoadingStatus[node.key];
-      console.log(fileResponses);
-      console.log(node.key);
       const isError = fileResponses[node.key]?.error;
 
       const title = (
@@ -294,6 +292,7 @@ export const FileTreePage: React.FC = () => {
     const reports = [];
     console.log(fileResponses);
     for (const fileKey in fileResponses) {
+      if (fileKey.error) return;
       const response =
         fileResponses[fileKey]?.llmResponse?.choices[0]?.message.content;
       const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
@@ -331,6 +330,9 @@ export const FileTreePage: React.FC = () => {
           onSelect={(keys, event) => {
             const node = event.node as FileNode;
             handleSelectFile(node);
+          }}
+          style={{
+            paddingTop: '12px',
           }}
         />
       </Sider>

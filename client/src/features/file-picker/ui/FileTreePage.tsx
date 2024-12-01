@@ -303,6 +303,7 @@ export const FileTreePage: React.FC = () => {
       return reports;
     } catch (error) {
       console.log(error);
+      return [];
     }
   }, [fileResponses]);
 

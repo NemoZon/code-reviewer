@@ -1,7 +1,6 @@
 import express, { Express } from 'express';
 import cors, { CorsOptions } from 'cors';
-import { HelloRouter } from '@routers/hello.router';
-import { LintRouter } from '@routers/lint.router'; // Новый роутер
+import { LintRouter } from './routers/lint.router'; // Новый роутер
 
 const app: Express = express();
 
@@ -14,7 +13,6 @@ app.use(express.json());
 app.use(cors());
 
 // Подключение роутеров
-app.use('/api', HelloRouter);
 app.use('/api', LintRouter); // Подключение роутера для ESLint
 
 export default app;

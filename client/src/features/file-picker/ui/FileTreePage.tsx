@@ -177,6 +177,7 @@ export const FileTreePage: React.FC = () => {
     for (const node of nodes) {
       if (
         node.isFile &&
+        node.path?.indexOf('node_modules') === -1 &&
         (node.title.endsWith('.ts') ||
           node.title.endsWith('.tsx') ||
           node.title.endsWith('.py'))

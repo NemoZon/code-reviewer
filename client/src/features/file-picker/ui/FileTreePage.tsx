@@ -3,6 +3,8 @@ import { Button, Tree, Layout, Spin } from 'antd';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import JSZip from 'jszip'; // Импорт JSZip
+import { unzipFile } from '../../jszipconverter/zipconverter'; // Функция разархивирования
 import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
 import { FileNode } from '../model/types';
@@ -58,6 +60,7 @@ export const FileTreePage: React.FC = () => {
       });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
+      message.error('Не удалось выбрать папку.');
     }
   };
 
@@ -76,20 +79,32 @@ export const FileTreePage: React.FC = () => {
         const content = await file.text();
         const fileKey = uid();
 
-        children.push({
-          title: file.name,
-          key: fileKey,
-          isFile: true,
-          content,
-          path: entryPath, // Добавляем путь
-        });
+        // Если это ZIP файл, распаковываем его
+        if (file.name.endsWith('.zip')) {
+          const zipContent = await handleZipFile(file);
+          children.push({
+            title: file.name,
+            key: fileKey,
+            isFile: true,
+            content: zipContent, // Содержимое архива
+            path: entryPath,
+          });
+        } else {
+          children.push({
+            title: file.name,
+            key: fileKey,
+            isFile: true,
+            content,
+            path: entryPath, // Добавляем путь
+          });
+        }
       } else if (entry.kind === 'directory') {
         const subChildren = await traverseDirectory(entry, entryPath); // Передаем обновленный путь
         const dirKey = uid();
 
         children.push({
           title: entry.name,
-          key: dirKey,
+          key: uid(),
           children: subChildren,
           isFile: false,
           path: entryPath, // Добавляем путь для директории
@@ -98,6 +113,26 @@ export const FileTreePage: React.FC = () => {
     }
 
     return children;
+  };
+
+  // Функция для обработки ZIP файлов
+  const handleZipFile = async (file: File) => {
+    const zip = new JSZip();
+    const content = await file.arrayBuffer();
+    const zipContent = await zip.loadAsync(content);
+
+    const fileNames = Object.keys(zipContent.files);
+    const fileTexts = await Promise.all(
+      fileNames.map(async (fileName) => {
+        const fileData = await zipContent.files[fileName].async('text');
+        return { name: fileName, content: fileData };
+      }),
+    );
+
+    // Возвращаем содержимое всех файлов в архиве
+    return fileTexts
+      .map((file) => `${file.name}:\n${file.content}`)
+      .join('\n\n');
   };
 
   // Собираем все ts и tsx файлы из дерева
@@ -278,10 +313,7 @@ export const FileTreePage: React.FC = () => {
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider
-        width={300}
-        style={{ background: '#fff', overflow: 'auto', marginBottom: 60 }}
-      >
+      <Sider width={300} style={{ background: '#fff', overflow: 'auto' }}>
         <Tree
           treeData={renderTreeNodes(store.repoTree)}
           onSelect={(keys, event) => {
@@ -290,7 +322,7 @@ export const FileTreePage: React.FC = () => {
           }}
         />
       </Sider>
-      <Content style={{ padding: 16, overflowY: 'scroll', paddingBottom: 60 }}>
+      <Content style={{ padding: 16, overflowY: 'scroll' }}>
         {selectedFileContent && (
           <SyntaxHighlighter language="javascript" style={darcula}>
             {selectedFileContent}
@@ -355,8 +387,6 @@ export const FileTreePage: React.FC = () => {
           bottom: 16,
           left: 100,
           padding: 10,
-          paddingLeft: 40,
-          paddingRight: 40,
         }}
         onClick={handleSelectFolder}
       >

@@ -143,27 +143,33 @@ export const FileTreePage: React.FC = () => {
     const content = await file.arrayBuffer();
     const zipContent = await zip.loadAsync(content);
 
-    const fileNames = Object.keys(zipContent.files);
-    const fileTexts = await Promise.all(
-      fileNames.map(async (fileName) => {
-        const fileData = await zipContent.files[fileName].async('text');
-        return { name: fileName, content: fileData };
+    const fileNodes: FileNode[] = [];
+
+    await Promise.all(
+      Object.keys(zipContent.files).map(async (fileName) => {
+        const zipEntry = zipContent.files[fileName];
+        if (!zipEntry.dir) {
+          const fileData = await zipEntry.async('text');
+          const fileKey = uid();
+          const fileNode: FileNode = {
+            title: fileName,
+            key: fileKey,
+            isFile: true,
+            content: fileData,
+            path: fileName,
+          };
+          fileNodes.push(fileNode);
+        }
       }),
     );
 
-    // Добавляем файлы из архива в структуру дерева
+    // Создаем узел для zip-файла
     const zipFileNode: FileNode = {
       title: file.name,
       key: uid(),
       isFile: false,
       path: file.name,
-      children: fileTexts.map((file) => ({
-        title: file.name,
-        key: uid(),
-        isFile: true,
-        content: file.content,
-        path: file.name,
-      })),
+      children: fileNodes,
     };
 
     // Обновляем состояние дерева с добавленными файлами
@@ -171,6 +177,12 @@ export const FileTreePage: React.FC = () => {
       ...prev,
       repoTree: [...prev.repoTree, zipFileNode],
     }));
+
+    // Собираем файлы с необходимыми расширениями из zip
+    const tsFiles = collectTsFiles([zipFileNode]);
+
+    // Отправляем файлы на сервер с ограничением по количеству запросов
+    await sendFilesWithLimit(tsFiles, 5);
   };
 
   // Собираем все ts, tsx и py файлы из дерева
@@ -192,6 +204,7 @@ export const FileTreePage: React.FC = () => {
     }
     return files;
   };
+
 
   // Отправка файла на сервер с логикой повторных попыток
   const sendFileToServer = async (file: FileNode, retries = 2): Promise<void> => {
@@ -314,11 +327,15 @@ export const FileTreePage: React.FC = () => {
       const title = (
         <span>
           {node.title}
-          {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
-          {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
-          {!(isLoading || isError) && !node.children && (
-            <CheckOutlined style={{ marginLeft: 8 }} />
-          )}
+          {(node.title.endsWith('.py') || node.title.endsWith('.ts') || node.title.endsWith('.tsx') && (
+            <>
+              {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
+              {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
+              {!(isLoading || isError) && !node.children && (
+                <CheckOutlined style={{ marginLeft: 8 }} />
+              )}
+            </>
+        ))}
         </span>
       );
 

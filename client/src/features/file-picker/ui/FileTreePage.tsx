@@ -27,7 +27,9 @@ export const FileTreePage: React.FC = () => {
     }
   }, []);
 
-  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>({});
+  const [fileResponses, setFileResponses] = useState<{ [key: string]: any }>(
+    {},
+  );
   const [fileLoadingStatus, setFileLoadingStatus] = useState<{
     [key: string]: boolean;
   }>({});
@@ -76,13 +78,25 @@ export const FileTreePage: React.FC = () => {
         const content = await file.text();
         const fileKey = uid();
 
-        children.push({
-          title: file.name,
-          key: fileKey,
-          isFile: true,
-          content,
-          path: entryPath, // Добавляем путь
-        });
+        // Если это ZIP файл, распаковываем его
+        if (file.name.endsWith('.zip')) {
+          const zipContent = await handleZipFile(file);
+          children.push({
+            title: file.name,
+            key: fileKey,
+            isFile: true,
+            content: zipContent, // Содержимое архива
+            path: entryPath,
+          });
+        } else {
+          children.push({
+            title: file.name,
+            key: fileKey,
+            isFile: true,
+            content,
+            path: entryPath, // Добавляем путь
+          });
+        }
       } else if (entry.kind === 'directory') {
         const subChildren = await traverseDirectory(entry, entryPath); // Передаем обновленный путь
         const dirKey = uid();
@@ -100,15 +114,24 @@ export const FileTreePage: React.FC = () => {
     return children;
   };
 
-  // Обработка ZIP-файла
-  const handleZipFile = async (file: File): Promise<Record<string, string>> => {
-    try {
-      const files = await unzipFile(file); // Используем вашу функцию
-      return files;
-    } catch (error) {
-      console.error('Ошибка при разархивировании файла:', error);
-      throw new Error('Не удалось разархивировать файл');
-    }
+  // Функция для обработки ZIP файлов
+  const handleZipFile = async (file: File) => {
+    const zip = new JSZip();
+    const content = await file.arrayBuffer();
+    const zipContent = await zip.loadAsync(content);
+
+    const fileNames = Object.keys(zipContent.files);
+    const fileTexts = await Promise.all(
+      fileNames.map(async (fileName) => {
+        const fileData = await zipContent.files[fileName].async('text');
+        return { name: fileName, content: fileData };
+      }),
+    );
+
+    // Возвращаем содержимое всех файлов в архиве
+    return fileTexts
+      .map((file) => `${file.name}:\n${file.content}`)
+      .join('\n\n');
   };
 
   // Собираем все ts и tsx файлы из дерева
@@ -172,7 +195,10 @@ export const FileTreePage: React.FC = () => {
 
   // Обработка клика на файл
   const handleSelectFile = (file: FileNode) => {
-    const findFileInTree = (nodes: FileNode[], targetKey: string): FileNode | null => {
+    const findFileInTree = (
+      nodes: FileNode[],
+      targetKey: string,
+    ): FileNode | null => {
       for (const node of nodes) {
         if (node.key === targetKey) {
           return node;
@@ -249,14 +275,17 @@ export const FileTreePage: React.FC = () => {
     const reports = [];
 
     for (const fileKey in fileResponses) {
-      const response = fileResponses[fileKey].llmResponse.choices[0].message.content;
+      const response =
+        fileResponses[fileKey].llmResponse.choices[0].message.content;
       const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
-    
+
       // Ищем все совпадения с помощью matchAll
-      const jsonData = JSON.parse([...response?.matchAll(codeBlockRegex)][0][2]);
+      const jsonData = JSON.parse(
+        [...response?.matchAll(codeBlockRegex)][0][2],
+      );
       if (response && jsonData) {
         console.log(jsonData);
-        
+
         const highCriticalIssues = jsonData.issues.filter(
           (issue: any) =>
             issue.criticality === 'High' || issue.criticality === 'Critical',
@@ -272,7 +301,7 @@ export const FileTreePage: React.FC = () => {
     }
 
     console.log(reports);
-    
+
     return reports;
   }, [fileResponses]);
 

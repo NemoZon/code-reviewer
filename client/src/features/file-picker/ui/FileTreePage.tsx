@@ -132,10 +132,26 @@ export const FileTreePage: React.FC = () => {
       }),
     );
 
-    // Возвращаем содержимое всех файлов в архиве
-    return fileTexts
-      .map((file) => `${file.name}:\n${file.content}`)
-      .join('\n\n');
+    // Добавляем файлы из архива в структуру дерева
+    const zipFileNode: FileNode = {
+      title: file.name,
+      key: uid(),
+      isFile: false,
+      path: file.name,
+      children: fileTexts.map((file) => ({
+        title: file.name,
+        key: uid(),
+        isFile: true,
+        content: file.content,
+        path: file.name,
+      })),
+    };
+
+    // Обновляем состояние дерева с добавленными файлами
+    setStore((prev) => ({
+      ...prev,
+      repoTree: [...prev.repoTree, zipFileNode],
+    }));
   };
 
   // Собираем все ts и tsx файлы из дерева
@@ -228,6 +244,17 @@ export const FileTreePage: React.FC = () => {
 
     setSelectedFileName(selectedFile.title);
     setSelectedFileContent(selectedFile.content);
+
+    // Проверяем, что path существует и является строкой, прежде чем вызывать endsWith
+    if (selectedFile.path && selectedFile.path.endsWith('.zip')) {
+      // Это архив, нужно обработать каждый файл внутри
+      selectedFile.children?.forEach((zipFile) => {
+        sendFileToServer(zipFile); // Отправляем файл из архива
+      });
+    } else {
+      // Обычный файл, отправляем на сервер
+      sendFileToServer(selectedFile);
+    }
 
     // Получаем ответ для файла
     const response = fileResponses[file.key];
@@ -398,13 +425,37 @@ export const FileTreePage: React.FC = () => {
         style={{
           position: 'fixed',
           bottom: 16,
-          left: 100,
+          left: 50,
           padding: 10,
         }}
         onClick={handleSelectFolder}
       >
         Выбрать папку
       </Button>
+      <Button
+        type="primary"
+        style={{
+          position: 'fixed',
+          bottom: 16,
+          left: 170,
+          padding: 10,
+        }}
+        onClick={() => document.getElementById('zipFileInput')?.click()} // Скрыть input по клику на кнопку
+      >
+        Выбрать zip
+      </Button>
+      <input
+        type="file"
+        id="zipFileInput"
+        style={{ display: 'none' }} // Скрываем input
+        accept=".zip"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            await handleZipFile(file); // Передаем выбранный файл в функцию
+          }
+        }}
+      />
     </Layout>
   );
 };

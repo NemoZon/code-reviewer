@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Tree, Layout, Spin } from 'antd';
+import { WarningOutlined } from '@ant-design/icons';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -294,10 +295,13 @@ export const FileTreePage: React.FC = () => {
   const renderTreeNodes = (nodes: FileNode[]): any =>
     nodes.map((node) => {
       const isLoading = fileLoadingStatus[node.key];
+      const isError = fileResponses[node.key].error;
+
       const title = (
         <span>
           {node.title}
           {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
+          {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
         </span>
       );
 

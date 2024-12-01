@@ -71,48 +71,52 @@ Return your findings in JSON format:
 }
 If in the suggestion or description will be code you have to append \`\`\`languageOfCode and than code.`;
 
-const getPropmt = (filename: string, withHistory: boolean, response: boolean) => {
-    const firstPart = `You are a TypeScript code reviewer. Analyze the provided ${filename} for compliance with the following standards:`
-    const firstPartToExplain = `You previously provided the following report for the file ${filename} like a TypeScript expert. Now you should correct inaccuracies of this report and send corrected report with same structure.`;
+const promptForPython = `You will be provided with a Python file along with its project path. Your task is to review the file and ensure compliance with the following project standards. Highlight critical violations that may affect stability, performance, or maintainability. Exclude minor formatting issues unless they cause functional errors or reduced clarity.
 
-    const rules = `
-    ### Function Standards:
-1. Arrow functions (e.g. => {}) are allowed only for simple expressions. If using braces, rewrite as a classic function.
-2. Arrow functions (e.g. => {}) must not be used for object methods.
-3. Classic functions are preferred and should be used wherever possible.
+Guidelines to Follow:
 
-### Structure and Style:
-1. Ensure project structure follows the required conventions (e.g., 'index.ts' only for exports).
-2. CSS Modules must be used with snake_case selectors.
-3. Functions and variables should have meaningful names that reflect their purpose.`
-    const formatForTest = `
-    ### Report Format:
-Return ONLY corrected file and nothing more`;
-    const format = `
-    ### Report Format:
-Return your findings in JSON format:
+Architecture and Structure:
+
+Verify adherence to the Hexagonal architecture (separation of business logic, adapters, and composites).
+Confirm appropriate placement of the file (e.g., components/demo_project_backend).
+Check that dependencies and configurations (e.g., setup.py, pyproject.toml) align with project expectations.
+Code Quality:
+
+Ensure PEP 8 compliance and proper use of yapf/isort formatting.
+Verify clear and concise docstrings (PEP 256/257).
+Check for logical code structure, modularity, and adherence to the "Unit of Work" pattern for database transactions.
+Library Usage:
+
+Confirm use of approved libraries (e.g., Falcon, SQLAlchemy, Pydantic).
+Validate compatibility with Python 3.7 and dependencies specified in the document.
+Business Logic:
+
+Check that the service layer implements DI and encapsulates logic correctly.
+Ensure data transfer objects (DTOs) are used where applicable and avoid direct use of simple dictionaries between layers.
+Security and Performance:
+
+Verify that logging (via logging module) and JSON serialization meet project standards.
+Ensure database queries avoid N+1 issues and follow specified ORM mapping patterns.
+Testing and Error Handling:
+
+Confirm presence of unit and integration tests, with correct mocking of adapters for unit tests.
+Check that errors are handled gracefully, avoiding technical details in user-facing responses.
+Output Format:
+
+Return findings in JSON format:
 {
     "file": "<file_name>",
-    "score": <final_score>,
     "issues": [
         {
             "type": "<issue_type>",
-            "criticality": "<Critical/High/Medium/Low>",
+            "criticality": "<Critical/High>",
             "location": "<line_number>",
             "description": "<description>",
             "suggestion": "<suggested_fix>"
         }
     ]
-}`;
-
-    if (!withHistory) {
-        return firstPart + rules + format;
-    }
-    return firstPartToExplain + rules + `
-    Previous report:
-    ` + response + `
-    ` + format;
 }
+If there are no critical issues, return an empty JSON object.`
 
 // Функция для отправки запроса в LLM
 const sendToLLM = async (fileContent: string, filePath: string, prompt: string, needToReturn?: boolean) => {
@@ -154,9 +158,10 @@ router.post("/lint", upload.single("file"), async (req: Request, res: Response) 
 
   const fileContent = req.file.buffer.toString("utf-8");
   const filePath = req.body.path;
+  const isPython = filePath.endsWith('.py');
 
   try {
-    const llmResult = await sendToLLM(fileContent, filePath, prompt + `\nFilePath: ${filePath}`, true);
+    const llmResult = await sendToLLM(fileContent, filePath, (isPython ? prompt : promptForPython) + `\nFilePath: ${filePath}`, true);
     res.json({ llmResponse: llmResult });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

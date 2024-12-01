@@ -110,18 +110,32 @@ const styles = StyleSheet.create({
   },
 });
 
-export const mockJson: Json = {
-  file: 'App.tsx',
-  issues: [
-    {
-      type: 'Ошибка в именовании функции',
-      criticality: Criticality.Critical,
-      location: 'Линия 12',
-      description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
-      suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
-    },
-  ],
-};
+export const mockJson: Json[] = [
+  {
+    file: 'App.tsx',
+    issues: [
+      {
+        type: 'Ошибка в именовании функции',
+        criticality: Criticality.Critical,
+        location: 'Линия 12',
+        description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
+        suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
+      },
+    ],
+  },
+  {
+    file: 'App.tsx',
+    issues: [
+      {
+        type: 'Ошибка в именовании функции',
+        criticality: Criticality.Critical,
+        location: 'Линия 12',
+        description: 'Хук "myConst" должен начинатся с ключевого слова "use"',
+        suggestion: 'Исправленная версия выглядит так: myConst => useMyConst',
+      },
+    ],
+  },
+];
 
 function IssueType({ children }: { children: string }) {
   return <Text style={[styles.type]}>{children}</Text>;
@@ -234,22 +248,27 @@ const renderLine = (text: string) => {
   );
 };
 
-export function jsonToPdf(json: Json) {
+export function jsonToPdf(jsons: Json[]) {
+  console.log("jsons", jsons);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>Отчет {json.file}</Text>
-        <View style={styles.section}>
-          {json.issues.map((issue, index) => (
-            <View key={index}>
-              <IssueType>{issue.type}</IssueType>
-              <CriticalityText>{issue.criticality}</CriticalityText>
-              <Line>{issue.location}</Line>
-              {issue.description && renderLine(issue.description)}
-              {issue.suggestion && renderLine(issue.suggestion)}
+        {jsons.map((json) => (
+          <View>
+            <Text style={styles.title}>Отчет {json.file}</Text>
+            <View style={styles.section}>
+              {json.issues.map((issue, index) => (
+                <View key={index}>
+                  <IssueType>{issue.type}</IssueType>
+                  <CriticalityText>{issue.criticality}</CriticalityText>
+                  <Line>{issue.location}</Line>
+                  {issue.description && renderLine(issue.description)}
+                  {issue.suggestion && renderLine(issue.suggestion)}
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </View>
+        ))}
       </Page>
     </Document>
   );

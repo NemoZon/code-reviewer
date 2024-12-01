@@ -3,7 +3,7 @@ import { Json } from '../model/types';
 import { jsonToPdf } from '../model/adapters';
 
 interface IPreview {
-  file: Json;
+  file: Json[];
 }
 
 function Preview({ file }: IPreview) {

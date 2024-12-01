@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Tree, Layout, Spin } from 'antd';
+import { WarningOutlined, CheckOutlined } from '@ant-design/icons';
 import { uid } from 'uid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -8,11 +9,15 @@ import { unzipFile } from '../../jszipconverter/zipconverter'; // Функция
 import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
 import { FileNode } from '../model/types';
+import { mockJson } from '../../converter/model/adapters';
+import { Json } from '../../converter/model/types';
 const { Content, Sider } = Layout;
 
 export const FileTreePage: React.FC = () => {
   const [selectedFileIssues, setSelectedFileIssues] = useState<any[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [filePdfData, setFilePdfData] = useState<Json[]>([]);
+
   const { store, setStore } = useStore();
 
   const [selectedFileContent, setSelectedFileContent] = useState<string>();
@@ -23,7 +28,7 @@ export const FileTreePage: React.FC = () => {
       setSelectedFileContent(store.lastFile.file.content);
     }
     if (store.lastFile?.response) {
-      selectedFileIssues(store.lastFile.response);
+      setSelectedFileIssues(store.lastFile.response);
     }
   }, []);
 
@@ -59,7 +64,6 @@ export const FileTreePage: React.FC = () => {
       });
     } catch (error) {
       console.error('Ошибка при выборе папки:', error);
-      message.error('Не удалось выбрать папку.');
     }
   };
 
@@ -156,7 +160,7 @@ export const FileTreePage: React.FC = () => {
     for (const node of nodes) {
       if (
         node.isFile &&
-        (node.title.endsWith('.ts') || node.title.endsWith('.tsx'))
+        (node.title.endsWith('.ts') || node.title.endsWith('.tsx') || node.title.endsWith('.py'))
       ) {
         files.push(node);
       }
@@ -171,7 +175,7 @@ export const FileTreePage: React.FC = () => {
   const sendFileToServer = async (file: FileNode, retries = 3) => {
     const formData = new FormData();
     formData.append('file', new Blob([file.content || '']), file.title);
-    formData.append('path', file.path);
+    formData.append('path', file.path!);
 
     try {
       setFileLoadingStatus((prev) => ({ ...prev, [file.key]: true }));
@@ -209,33 +213,33 @@ export const FileTreePage: React.FC = () => {
     }
   };
 
-  // Обработка клика на файл
-  // Обработка клика на файл
-  const handleSelectFile = (file: FileNode) => {
-    const findFileInTree = (
-      nodes: FileNode[],
-      targetKey: string,
-    ): FileNode | null => {
-      for (const node of nodes) {
-        if (node.key === targetKey) {
-          return node;
-        }
-        if (node.children) {
-          const found = findFileInTree(node.children, targetKey);
-          if (found) {
-            setStore((prev) => ({
-              ...prev,
-              lastFile: {
-                file: found,
-              },
-            }));
-            return found;
-          }
+  const findFileInTree = (
+    nodes: FileNode[],
+    targetKey: string,
+  ): FileNode | null => {
+    for (const node of nodes) {
+      if (node.key === targetKey) {
+        return node;
+      }
+      if (node.children) {
+        const found = findFileInTree(node.children, targetKey);
+        if (found) {
+          setStore((prev) => ({
+            ...prev,
+            lastFile: {
+              file: found,
+            },
+          }));
+
+          return found;
         }
       }
-      return null;
-    };
+    }
+    return null;
+  };
 
+  // Обработка клика на файл
+  const handleSelectFile = (file: FileNode) => {
     const selectedFile = findFileInTree(store.repoTree, file.key)!;
 
     setSelectedFileName(selectedFile.title);
@@ -265,6 +269,15 @@ export const FileTreePage: React.FC = () => {
             response: [response.llmResponse.choices[0].message.content],
           },
         }));
+        const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g;
+        const jsonData = JSON.parse(
+          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
+        );
+        if (jsonData) {
+          console.log('jsonData', jsonData);
+          setFilePdfData([jsonData]);
+        }
+
         setSelectedFileIssues([
           response.llmResponse.choices[0].message.content,
         ]);
@@ -282,10 +295,14 @@ export const FileTreePage: React.FC = () => {
   const renderTreeNodes = (nodes: FileNode[]): any =>
     nodes.map((node) => {
       const isLoading = fileLoadingStatus[node.key];
+      const isError = fileResponses[node.key]?.error;
+
       const title = (
         <span>
           {node.title}
           {isLoading && <Spin size="small" style={{ marginLeft: 8 }} />}
+          {isError && <WarningOutlined style={{ marginLeft: 8 }} />}
+          {!(isLoading || isError) && <CheckOutlined style={{ marginLeft: 8 }} />}
         </span>
       );
 
@@ -299,41 +316,37 @@ export const FileTreePage: React.FC = () => {
 
   // Агрегируем отчеты для общего рапорта
   const aggregatedReports = React.useMemo(() => {
-    try {
-      const reports = [];
-
-      for (const fileKey in fileResponses) {
-        const response =
-          fileResponses[fileKey].llmResponse.choices[0].message.content;
-        const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
-
+    const reports = [];
+    console.log(fileResponses);
+    for (const fileKey in fileResponses) {
+      if (fileKey.error) return;
+      const response =
+        fileResponses[fileKey]?.llmResponse?.choices[0]?.message.content;
+      const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
+      let jsonData;
+      try {
         // Ищем все совпадения с помощью matchAll
-        console.log(
-          '[...response?.matchAll(codeBlockRegex)]?.[0]?.[2]',
+        jsonData = JSON.parse(
           [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
         );
-
-        const jsonData = JSON.parse(
-          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
+      } catch (error) {
+        console.log(error);
+      }
+      if (response && jsonData) {
+        const highCriticalIssues = jsonData.issues.filter(
+          (issue: any) =>
+            issue.criticality === 'High' || issue.criticality === 'Critical',
         );
-        if (response && jsonData) {
-          const highCriticalIssues = jsonData.issues.filter(
-            (issue: any) =>
-              issue.criticality === 'High' || issue.criticality === 'Critical',
-          );
 
-          if (highCriticalIssues.length > 0) {
-            reports.push({
-              file: response.file,
-              issues: highCriticalIssues,
-            });
-          }
+        if (highCriticalIssues.length > 0) {
+          reports.push({
+            file: findFileInTree(store.repoTree, fileKey)!,
+            issues: highCriticalIssues,
+          });
         }
       }
-      return reports;
-    } catch (error) {
-      console.log(error);
     }
+    return reports;
   }, [fileResponses]);
 
   return (
@@ -344,6 +357,9 @@ export const FileTreePage: React.FC = () => {
           onSelect={(keys, event) => {
             const node = event.node as FileNode;
             handleSelectFile(node);
+          }}
+          style={{
+            paddingTop: '12px',
           }}
         />
       </Sider>
@@ -369,14 +385,7 @@ export const FileTreePage: React.FC = () => {
             </h3>
             {selectedFileIssues.length > 0 ? (
               <>
-                <Link
-                  to="/filepreview"
-                  state={{
-                    file: selectedFileName,
-                    score: 80,
-                    issues: selectedFileIssues,
-                  }}
-                >
+                <Link to="/filepreview" state={selectedFileIssues}>
                   Открыть рапорт в pdf
                 </Link>
                 <ul>
@@ -399,7 +408,7 @@ export const FileTreePage: React.FC = () => {
       {allRequestsCompleted && aggregatedReports.length > 0 && (
         <Link
           to="/filepreview"
-          state={aggregatedReports[0]}
+          state={aggregatedReports}
           style={{
             position: 'fixed',
             top: 16,

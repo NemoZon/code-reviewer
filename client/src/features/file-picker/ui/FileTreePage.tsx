@@ -6,6 +6,7 @@ import { darcula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Link from '../../../shared/links/ui/Link';
 import { useStore } from '../../store/model/StoreContext';
 import { FileNode } from '../model/types';
+import { mockJson } from '../../converter/model/adapters';
 const { Content, Sider } = Layout;
 
 export const FileTreePage: React.FC = () => {
@@ -246,7 +247,10 @@ export const FileTreePage: React.FC = () => {
         const codeBlockRegex = /```(\w+)\n([\s\S]*?)\n```/g; // Регулярное выражение для поиска всех шаблонов
 
         // Ищем все совпадения с помощью matchAll
-        console.log('[...response?.matchAll(codeBlockRegex)]?.[0]?.[2]', [...response?.matchAll(codeBlockRegex)]?.[0]?.[2]);
+        console.log(
+          '[...response?.matchAll(codeBlockRegex)]?.[0]?.[2]',
+          [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
+        );
 
         const jsonData = JSON.parse(
           [...response?.matchAll(codeBlockRegex)]?.[0]?.[2],
@@ -308,14 +312,7 @@ export const FileTreePage: React.FC = () => {
             </h3>
             {selectedFileIssues.length > 0 ? (
               <>
-                <Link
-                  to="/filepreview"
-                  state={{
-                    file: selectedFileName,
-                    score: 80,
-                    issues: selectedFileIssues,
-                  }}
-                >
+                <Link to="/filepreview" state={mockJson}>
                   Открыть рапорт в pdf
                 </Link>
                 <ul>
